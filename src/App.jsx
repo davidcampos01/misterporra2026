@@ -1,9 +1,9 @@
 import { useState, useMemo } from "react";
 import { GROUPS_DATA } from "./constants/groups";
 import { FIXTURES } from "./constants/fixtures";
-import { PLAYER_COLORS } from "./constants/theme";
 import { getStandings, scoreMatch } from "./utils/scoring";
 import { css } from "./styles/global";
+import { useGameState } from "./hooks/useGameState";
 import { SetupTab } from "./tabs/SetupTab";
 import { CalendarioTab } from "./tabs/CalendarioTab";
 import { GruposTab } from "./tabs/GruposTab";
@@ -20,38 +20,27 @@ const TABS = [
 
 export default function App() {
   const [tab, setTab] = useState("grupos");
-  const [players, setPlayers] = useState([{ name: "Jugador 1" }, { name: "Jugador 2" }]);
   const [activePlayerIdx, setActivePlayerIdx] = useState(0);
-  const [results, setResults] = useState({});
-  const [predictions, setPredictions] = useState([]);
 
-  const addPlayer = () => {
-    setPlayers(prev => [...prev, { name: `Jugador ${prev.length + 1}` }]);
-    setPredictions(prev => [...prev, {}]);
-  };
+  const { gameState, setResult, setPred, addPlayer, removePlayer, renamePlayer } = useGameState();
 
-  const removePlayer = (idx) => {
-    if (players.length <= 2) return;
-    setPlayers(prev => prev.filter((_, i) => i !== idx));
-    setPredictions(prev => prev.filter((_, i) => i !== idx));
+  // Pantalla de carga mientras Firestore responde
+  if (!gameState) {
+    return (
+      <div style={{ background: "#080811", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+        <style>{css}</style>
+        <div style={{ fontSize: 52 }}>🏆</div>
+        <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 28, letterSpacing: 4, color: "#f5c842" }}>MUNDIAL 2026</div>
+        <div style={{ fontSize: 12, color: "#4040a0", letterSpacing: 2, textTransform: "uppercase" }}>Conectando…</div>
+      </div>
+    );
+  }
+
+  const { players, results, predictions } = gameState;
+
+  const handleRemovePlayer = (idx) => {
+    removePlayer(idx, players, predictions);
     if (activePlayerIdx >= players.length - 1) setActivePlayerIdx(Math.max(0, activePlayerIdx - 1));
-  };
-
-  const renamePlayer = (idx, name) => {
-    setPlayers(prev => { const n = [...prev]; n[idx] = { ...n[idx], name }; return n; });
-  };
-
-  const setResult = (matchId, key, val) => {
-    setResults(prev => ({ ...prev, [matchId]: { ...prev[matchId], [key]: val } }));
-  };
-
-  const setPred = (playerIdx, matchId, key, val) => {
-    setPredictions(prev => {
-      const n = [...prev];
-      if (!n[playerIdx]) n[playerIdx] = {};
-      n[playerIdx] = { ...n[playerIdx], [matchId]: { ...n[playerIdx][matchId], [key]: val } };
-      return n;
-    });
   };
 
   const scores = useMemo(() => players.map((_, pidx) => {
@@ -117,7 +106,7 @@ export default function App() {
       </nav>
 
       {tab === "setup" && (
-        <SetupTab players={players} scores={scores} renamePlayer={renamePlayer} removePlayer={removePlayer} addPlayer={addPlayer} />
+        <SetupTab players={players} scores={scores} renamePlayer={renamePlayer} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players)} />
       )}
       {tab === "calendario" && (
         <CalendarioTab results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
