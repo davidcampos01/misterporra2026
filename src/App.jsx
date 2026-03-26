@@ -180,7 +180,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
         </nav>
 
         {tab === "setup" && (
-          <SetupTab players={players} scores={scores} renamePlayer={(idx, name) => renamePlayer(idx, name, players)} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players, predictions)} />
+          <SetupTab players={players} scores={scores} renamePlayer={(idx, name) => renamePlayer(idx, name, players)} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players, predictions)} tournament={tournament} />
         )}
         {tab === "calendario" && (
           <CalendarioTab results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
