@@ -26,11 +26,19 @@ function App() {
   const { gameState, fbError, setResult, setPred, addPlayer, removePlayer, renamePlayer } = useGameState();
 
   // Derivar datos del estado (con defaults seguros para cuando aún no hay estado)
-  const players = gameState?.players ?? [];
+  // Normalizar players: Firestore puede devolverlo como objeto si hubo dot-notation
+  const rawPlayers = gameState?.players ?? [];
+  const players = Array.isArray(rawPlayers)
+    ? rawPlayers
+    : Object.keys(rawPlayers).sort((a, b) => Number(a) - Number(b)).map(k => rawPlayers[k]);
+
   const results = gameState?.results ?? {};
-  const predictions = Array.isArray(gameState?.predictions)
-    ? gameState.predictions
-    : players.map((_, i) => gameState?.predictions?.[String(i)] ?? {});
+
+  // Normalizar predictions: siempre como array sincronizado con players
+  const rawPreds = gameState?.predictions ?? {};
+  const predictions = players.map((_, i) =>
+    Array.isArray(rawPreds) ? (rawPreds[i] ?? {}) : (rawPreds[String(i)] ?? {})
+  );
 
   // Todos los useMemo ANTES de cualquier return condicional (regla de hooks)
   const scores = useMemo(() => players.map((_, pidx) => {
@@ -120,16 +128,16 @@ function App() {
       </nav>
 
       {tab === "setup" && (
-        <SetupTab players={players} scores={scores} renamePlayer={renamePlayer} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players)} />
+        <SetupTab players={players} scores={scores} renamePlayer={(idx, name) => renamePlayer(idx, name, players)} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players, predictions)} />
       )}
       {tab === "calendario" && (
-        <CalendarioTab results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
+        <CalendarioTab results={results} setResult={(id, key, val) => setResult(id, key, val, results)} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
       )}
       {tab === "grupos" && (
-        <GruposTab standings={standings} results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
+        <GruposTab standings={standings} results={results} setResult={(id, key, val) => setResult(id, key, val, results)} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
       )}
       {tab === "pronosticos" && (
-        <PronosticosTab players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} results={results} setResult={setResult} predictions={predictions} setPred={setPred} />
+        <PronosticosTab players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} results={results} setResult={(id, key, val) => setResult(id, key, val, results)} predictions={predictions} setPred={(pidx, mid, key, val) => setPred(pidx, mid, key, val, players, predictions)} />
       )}
       {tab === "marcador" && (
         <MarcadorTab players={players} scores={scores} results={results} predictions={predictions} activePlayerIdx={activePlayerIdx} />

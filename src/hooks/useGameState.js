@@ -43,39 +43,52 @@ export function useGameState() {
     return () => { clearTimeout(timer); unsub(); };
   }, []);
 
-  const setResult = useCallback((matchId, key, val) => {
-    updateDoc(STATE_REF, { [`results.${matchId}.${key}`]: val });
+  // ─── Helpers para normalizar datos de Firestore ────────────────────────────
+  // Firestore convierte arrays a objetos {"0":x,"1":x} cuando se usan
+  // dot-notation updates. Siempre escribimos el objeto completo para evitarlo.
+
+  const setResult = useCallback((matchId, key, val, currentResults) => {
+    const updated = { ...currentResults, [matchId]: { ...currentResults?.[matchId], [key]: val } };
+    updateDoc(STATE_REF, { results: updated });
   }, []);
 
-  const setPred = useCallback((playerIdx, matchId, key, val) => {
-    updateDoc(STATE_REF, { [`predictions.${playerIdx}.${matchId}.${key}`]: val });
+  const setPred = useCallback((playerIdx, matchId, key, val, currentPlayers, currentPredictions) => {
+    const newPreds = {};
+    currentPlayers.forEach((_, i) => {
+      newPreds[String(i)] = { ...currentPredictions[i] };
+    });
+    newPreds[String(playerIdx)] = {
+      ...newPreds[String(playerIdx)],
+      [matchId]: { ...newPreds[String(playerIdx)]?.[matchId], [key]: val },
+    };
+    updateDoc(STATE_REF, { predictions: newPreds });
   }, []);
 
-  const addPlayer = useCallback((currentPlayers) => {
+  const addPlayer = useCallback((currentPlayers, currentPredictions) => {
     const idx = currentPlayers.length;
+    const newPreds = {};
+    currentPlayers.forEach((_, i) => { newPreds[String(i)] = { ...currentPredictions[i] }; });
+    newPreds[String(idx)] = {};
     updateDoc(STATE_REF, {
       players: [...currentPlayers, { name: `Jugador ${idx + 1}` }],
-      [`predictions.${idx}`]: {},
+      predictions: newPreds,
     });
   }, []);
 
   const removePlayer = useCallback((idx, currentPlayers, currentPredictions) => {
     if (currentPlayers.length <= 2) return;
     const newPlayers = currentPlayers.filter((_, i) => i !== idx);
-    // Re-indexar predicciones
     const newPreds = {};
     let newIdx = 0;
     for (let i = 0; i < currentPlayers.length; i++) {
-      if (i !== idx) {
-        newPreds[String(newIdx)] = currentPredictions[String(i)] ?? {};
-        newIdx++;
-      }
+      if (i !== idx) { newPreds[String(newIdx)] = currentPredictions[i] ?? {}; newIdx++; }
     }
     updateDoc(STATE_REF, { players: newPlayers, predictions: newPreds });
   }, []);
 
-  const renamePlayer = useCallback((idx, name) => {
-    updateDoc(STATE_REF, { [`players.${idx}.name`]: name });
+  const renamePlayer = useCallback((idx, name, currentPlayers) => {
+    const newPlayers = currentPlayers.map((p, i) => i === idx ? { ...p, name } : p);
+    updateDoc(STATE_REF, { players: newPlayers });
   }, []);
 
   return { gameState, fbError, setResult, setPred, addPlayer, removePlayer, renamePlayer };
