@@ -45,25 +45,16 @@ function TournamentSelector({ onSelect }) {
   );
 }
 
-function App() {
+function GameApp({ tournamentId, tournament, onChangeTournament }) {
   const [tab, setTab] = useState("grupos");
   const [activePlayerIdx, setActivePlayerIdx] = useState(0);
-  const [tournamentId, setTournamentId] = useState(
-    () => localStorage.getItem("misterporra_tournament") ?? null
-  );
 
-  const tournament = tournamentId ? TOURNAMENTS[tournamentId] : null;
-  const fixtures = tournament?.fixtures ?? [];
-  const groups = tournament?.groups ?? {};
+  const fixtures = tournament.fixtures;
+  const groups = tournament.groups;
 
   const { gameState, fbError, setResult, setPred, addPlayer, removePlayer, renamePlayer } = useGameState(tournamentId);
 
-  if (!tournamentId || !tournament) {
-    return <TournamentSelector onSelect={id => { localStorage.setItem("misterporra_tournament", id); setTournamentId(id); }} />;
-  }
-
-  // Derivar datos del estado (con defaults seguros para cuando aún no hay estado)
-  // Normalizar players: Firestore puede devolverlo como objeto si hubo dot-notation
+  // Normalizar players
   const rawPlayers = gameState?.players ?? [];
   const players = Array.isArray(rawPlayers)
     ? rawPlayers
@@ -71,13 +62,11 @@ function App() {
 
   const results = gameState?.results ?? {};
 
-  // Normalizar predictions: siempre como array sincronizado con players
   const rawPreds = gameState?.predictions ?? {};
   const predictions = players.map((_, i) =>
     Array.isArray(rawPreds) ? (rawPreds[i] ?? {}) : (rawPreds[String(i)] ?? {})
   );
 
-  // Todos los useMemo ANTES de cualquier return condicional (regla de hooks)
   const scores = useMemo(() => players.map((_, pidx) => {
     let total = 0, detail = [];
     fixtures.forEach(m => {
@@ -104,7 +93,6 @@ function App() {
     return out;
   }, [results, groups, fixtures]);
 
-  // Equipos que clasifican realmente a 16avos (1º y 2º de cada grupo + mejores 3ºs)
   const qualifiedTeams = useMemo(() => {
     const qualifiers = getQualifiers(results, fixtures, groups, tournament.numBest3rds);
     const set = new Set();
@@ -112,13 +100,11 @@ function App() {
     return set;
   }, [results, fixtures, groups, tournament]);
 
-  // Puntos por acertar clasificaciones de grupo
   const standingsScores = useMemo(() => players.map((_, pidx) => {
     let total = 0;
     const detail = [];
     Object.keys(groups).forEach(g => {
       const realOrder = standings[g]?.map(t => t.name) ?? [];
-      // Clasificacion predicha por este jugador
       const playerPreds = predictions[pidx] ?? {};
       const groupFixtures = fixtures.filter(f => f.group === g && f.matchday).map(f => {
         const pred = playerPreds[f.id];
@@ -130,7 +116,6 @@ function App() {
       });
       const predStandings = getStandings(groups[g].teams, groupFixtures);
       const predOrder = predStandings.map(t => t.name);
-      // Solo puntuar si el grupo real tiene al menos 1 partido jugado
       const hasRealResults = fixtures.filter(f => f.group === g && f.matchday).some(f => {
         const r = results[f.id];
         return r && r.homeScore !== "" && r.homeScore !== undefined;
@@ -148,13 +133,13 @@ function App() {
     if (activePlayerIdx >= players.length - 1) setActivePlayerIdx(Math.max(0, activePlayerIdx - 1));
   };
 
-  // Pantalla de carga / error (DESPUÉS de todos los hooks)
+  // Pantalla de carga / error
   if (!gameState) {
     return (
       <div style={{ background: "#080811", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24 }}>
         <style>{css}</style>
-        <div style={{ fontSize: 52 }}>🏆</div>
-        <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 28, letterSpacing: 4, color: "#f5c842" }}>MUNDIAL 2026</div>
+        <div style={{ fontSize: 52 }}>{tournament.emoji}</div>
+        <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 28, letterSpacing: 4, color: tournament.accentColor }}>{tournament.name}</div>
         {fbError ? (
           <div style={{ background: "rgba(255,107,107,.1)", border: "1px solid #ff6b6b", borderRadius: 10, padding: "12px 20px", color: "#ff8888", fontSize: 12, textAlign: "center", maxWidth: 360 }}>
             ⚠️ Error al conectar con Firebase:<br />
@@ -169,65 +154,81 @@ function App() {
 
   return (
     <TournamentContext.Provider value={{ fixtures, groups, tournament }}>
-    <div style={{ fontFamily: "'DM Sans',sans-serif", background: "#080811", minHeight: "100vh", color: "#f0f0f8", paddingBottom: 80 }}>
-      <style>{css}</style>
+      <div style={{ fontFamily: "'DM Sans',sans-serif", background: "#080811", minHeight: "100vh", color: "#f0f0f8", paddingBottom: 80 }}>
+        <style>{css}</style>
 
-      {/* HEADER */}
-      <div style={{
-        background: "linear-gradient(160deg,#080811 0%,#110828 60%,#080811 100%)",
-        padding: "40px 20px 20px", textAlign: "center", borderBottom: "1px solid #1a1a2a",
-        position: "relative", overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 70% 50% at 50% -5%,rgba(245,200,66,.15) 0%,transparent 70%)", pointerEvents: "none" }} />
-        <div style={{ fontSize: 46, position: "relative" }}>{tournament.emoji}</div>
-        <h1 style={{ fontFamily: "'Oswald',sans-serif", fontSize: 40, letterSpacing: 5, color: tournament.accentColor, lineHeight: 1, textShadow: `0 0 40px ${tournament.accentLight}`, position: "relative" }}>
-          {tournament.name}
-        </h1>
-        <p style={{ color: "#4040a0", fontSize: 11, letterSpacing: 3, textTransform: "uppercase", marginTop: 5, position: "relative" }}>
-          Misterporra · {players.length} jugadores
-        </p>
-        <button onClick={() => { localStorage.removeItem("misterporra_tournament"); setTournamentId(null); }} style={{ marginTop: 4, background: "none", border: "none", color: "#2a2a50", fontSize: 10, cursor: "pointer", letterSpacing: 1, textTransform: "uppercase" }}>cambiar torneo</button>
+        {/* HEADER */}
+        <div style={{ background: "linear-gradient(160deg,#080811 0%,#110828 60%,#080811 100%)", padding: "40px 20px 20px", textAlign: "center", borderBottom: "1px solid #1a1a2a", position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 70% 50% at 50% -5%,rgba(245,200,66,.15) 0%,transparent 70%)", pointerEvents: "none" }} />
+          <div style={{ fontSize: 46, position: "relative" }}>{tournament.emoji}</div>
+          <h1 style={{ fontFamily: "'Oswald',sans-serif", fontSize: 40, letterSpacing: 5, color: tournament.accentColor, lineHeight: 1, textShadow: `0 0 40px ${tournament.accentLight}`, position: "relative" }}>
+            {tournament.name}
+          </h1>
+          <p style={{ color: "#4040a0", fontSize: 11, letterSpacing: 3, textTransform: "uppercase", marginTop: 5, position: "relative" }}>
+            Misterporra · {players.length} jugadores
+          </p>
+          <button onClick={onChangeTournament} style={{ marginTop: 4, background: "none", border: "none", color: "#2a2a50", fontSize: 10, cursor: "pointer", letterSpacing: 1, textTransform: "uppercase" }}>cambiar torneo</button>
+        </div>
+
+        {/* NAV */}
+        <nav style={{ display: "flex", background: "#0c0c18", borderBottom: "1px solid #1a1a2a", overflowX: "auto", position: "sticky", top: 0, zIndex: 99 }}>
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{ flex: "0 0 auto", padding: "12px 16px", fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", cursor: "pointer", background: "none", border: "none", borderBottom: tab === t.id ? "3px solid #f5c842" : "3px solid transparent", color: tab === t.id ? "#f5c842" : "#4040a0", whiteSpace: "nowrap" }}>
+              {t.emoji} {t.label}
+            </button>
+          ))}
+        </nav>
+
+        {tab === "setup" && (
+          <SetupTab players={players} scores={scores} renamePlayer={(idx, name) => renamePlayer(idx, name, players)} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players, predictions)} />
+        )}
+        {tab === "calendario" && (
+          <CalendarioTab results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
+        )}
+        {tab === "grupos" && (
+          <GruposTab standings={standings} results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
+        )}
+        {tab === "eliminatorias" && (
+          <EliminatoriaTab results={results} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} />
+        )}
+        {tab === "pronosticos" && (
+          <PronosticosTab players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} results={results} setResult={setResult} predictions={predictions} setPred={setPred} standings={standings} qualifiedTeams={qualifiedTeams} />
+        )}
+        {tab === "marcador" && (
+          <MarcadorTab players={players} scores={scores} standingsScores={standingsScores} results={results} predictions={predictions} activePlayerIdx={activePlayerIdx} />
+        )}
       </div>
-
-      {/* NAV */}
-      <nav style={{ display: "flex", background: "#0c0c18", borderBottom: "1px solid #1a1a2a", overflowX: "auto", position: "sticky", top: 0, zIndex: 99 }}>
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            flex: "0 0 auto", padding: "12px 16px", fontSize: 11, fontWeight: 800,
-            letterSpacing: 1.5, textTransform: "uppercase", cursor: "pointer",
-            background: "none", border: "none",
-            borderBottom: tab === t.id ? "3px solid #f5c842" : "3px solid transparent",
-            color: tab === t.id ? "#f5c842" : "#4040a0",
-            whiteSpace: "nowrap",
-          }}>
-            {t.emoji} {t.label}
-          </button>
-        ))}
-      </nav>
-
-      {tab === "setup" && (
-        <SetupTab players={players} scores={scores} renamePlayer={(idx, name) => renamePlayer(idx, name, players)} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players, predictions)} />
-      )}
-      {tab === "calendario" && (
-        <CalendarioTab results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
-      )}
-      {tab === "grupos" && (
-        <GruposTab standings={standings} results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
-      )}
-      {tab === "eliminatorias" && (
-        <EliminatoriaTab results={results} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} />
-      )}
-      {tab === "pronosticos" && (
-        <PronosticosTab players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} results={results} setResult={setResult} predictions={predictions} setPred={setPred} standings={standings} qualifiedTeams={qualifiedTeams} />
-      )}
-      {tab === "marcador" && (
-        <MarcadorTab players={players} scores={scores} standingsScores={standingsScores} results={results} predictions={predictions} activePlayerIdx={activePlayerIdx} />
-      )}
-    </div>
     </TournamentContext.Provider>
   );
 }
 
+function App() {
+  const [tournamentId, setTournamentId] = useState(
+    () => localStorage.getItem("misterporra_tournament") ?? null
+  );
+
+  const tournament = tournamentId ? TOURNAMENTS[tournamentId] : null;
+
+  if (!tournamentId || !tournament) {
+    return (
+      <TournamentSelector onSelect={id => {
+        localStorage.setItem("misterporra_tournament", id);
+        setTournamentId(id);
+      }} />
+    );
+  }
+
+  return (
+    <GameApp
+      tournamentId={tournamentId}
+      tournament={tournament}
+      onChangeTournament={() => {
+        localStorage.removeItem("misterporra_tournament");
+        setTournamentId(null);
+      }}
+    />
+  );
+}
 export default function AppWithBoundary() {
   return (
     <ErrorBoundary>
