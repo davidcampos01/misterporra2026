@@ -4,6 +4,7 @@ import { FIXTURES } from "./constants/fixtures";
 import { getStandings, scoreMatch } from "./utils/scoring";
 import { css } from "./styles/global";
 import { useGameState } from "./hooks/useGameState";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { SetupTab } from "./tabs/SetupTab";
 import { CalendarioTab } from "./tabs/CalendarioTab";
 import { GruposTab } from "./tabs/GruposTab";
@@ -18,7 +19,7 @@ const TABS = [
   { id: "marcador",    emoji: "🏆",  label: "Puntos"   },
 ];
 
-export default function App() {
+function App() {
   const [tab, setTab] = useState("grupos");
   const [activePlayerIdx, setActivePlayerIdx] = useState(0);
 
@@ -42,7 +43,12 @@ export default function App() {
     );
   }
 
-  const { players, results, predictions } = gameState;
+  const players = gameState.players ?? [];
+  const results = gameState.results ?? {};
+  // Firestore guarda predictions como objeto {"0":{},"1":{}}, normalizamos a array
+  const predictions = Array.isArray(gameState.predictions)
+    ? gameState.predictions
+    : players.map((_, i) => gameState.predictions?.[String(i)] ?? {});
 
   const handleRemovePlayer = (idx) => {
     removePlayer(idx, players, predictions);
@@ -127,5 +133,13 @@ export default function App() {
         <MarcadorTab players={players} scores={scores} results={results} predictions={predictions} activePlayerIdx={activePlayerIdx} />
       )}
     </div>
+  );
+}
+
+export default function AppWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   );
 }
