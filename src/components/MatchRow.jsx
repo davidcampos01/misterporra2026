@@ -1,12 +1,16 @@
-import { GROUPS_DATA } from "../constants/groups";
 import { PLAYER_COLORS } from "../constants/theme";
 import { scoreMatch } from "../utils/scoring";
 import { ScoreInput } from "./ScoreInput";
+import { useTournament } from "../context/TournamentContext";
 
 export function MatchRow({ match, resultData, onResultChange, predictions, players, activePlayerIdx, onPredChange, mode }) {
+  const { groups } = useTournament();
   const rh = resultData?.homeScore ?? "";
   const ra = resultData?.awayScore ?? "";
   const isPending = match.home.includes("*") || match.away.includes("*");
+  const groupTeams = groups[match.group]?.teams ?? [];
+  const homeFlag = groupTeams.find(t => t.name === match.home)?.flag || "❓";
+  const awayFlag = groupTeams.find(t => t.name === match.away)?.flag || "❓";
 
   return (
     <div style={{
@@ -24,7 +28,7 @@ export function MatchRow({ match, resultData, onResultChange, predictions, playe
       {/* Teams + score */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 19 }}>{GROUPS_DATA[match.group].teams.find(t => t.name === match.home)?.flag || "❓"}</span>
+          <span style={{ fontSize: 19 }}>{homeFlag}</span>
           <span style={{ fontSize: 12, fontWeight: 600, color: isPending ? "#5050a0" : "#f0f0f8" }}>{match.home}</span>
         </div>
 
@@ -69,7 +73,7 @@ export function MatchRow({ match, resultData, onResultChange, predictions, playe
 
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
           <span style={{ fontSize: 12, fontWeight: 600, color: isPending ? "#5050a0" : "#f0f0f8", textAlign: "right" }}>{match.away}</span>
-          <span style={{ fontSize: 19 }}>{GROUPS_DATA[match.group].teams.find(t => t.name === match.away)?.flag || "❓"}</span>
+          <span style={{ fontSize: 19 }}>{awayFlag}</span>
         </div>
       </div>
 
