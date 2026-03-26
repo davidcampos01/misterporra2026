@@ -131,13 +131,13 @@ function App() {
         <SetupTab players={players} scores={scores} renamePlayer={(idx, name) => renamePlayer(idx, name, players)} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players, predictions)} />
       )}
       {tab === "calendario" && (
-        <CalendarioTab results={results} setResult={(id, key, val) => setResult(id, key, val, results)} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
+        <CalendarioTab results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
       )}
       {tab === "grupos" && (
-        <GruposTab standings={standings} results={results} setResult={(id, key, val) => setResult(id, key, val, results)} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
+        <GruposTab standings={standings} results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
       )}
       {tab === "pronosticos" && (
-        <PronosticosTab players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} results={results} setResult={(id, key, val) => setResult(id, key, val, results)} predictions={predictions} setPred={(pidx, mid, key, val) => setPred(pidx, mid, key, val, players, predictions)} />
+        <PronosticosTab players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} results={results} setResult={setResult} predictions={predictions} setPred={setPred} />
       )}
       {tab === "marcador" && (
         <MarcadorTab players={players} scores={scores} results={results} predictions={predictions} activePlayerIdx={activePlayerIdx} />

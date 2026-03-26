@@ -43,25 +43,14 @@ export function useGameState() {
     return () => { clearTimeout(timer); unsub(); };
   }, []);
 
-  // ─── Helpers para normalizar datos de Firestore ────────────────────────────
-  // Firestore convierte arrays a objetos {"0":x,"1":x} cuando se usan
-  // dot-notation updates. Siempre escribimos el objeto completo para evitarlo.
-
-  const setResult = useCallback((matchId, key, val, currentResults) => {
-    const updated = { ...currentResults, [matchId]: { ...currentResults?.[matchId], [key]: val } };
-    updateDoc(STATE_REF, { results: updated });
+  // results y predictions son MAPAS en Firestore → dot-notation es seguro
+  // y elimina race conditions al no depender del estado local previo
+  const setResult = useCallback((matchId, key, val) => {
+    updateDoc(STATE_REF, { [`results.${matchId}.${key}`]: val });
   }, []);
 
-  const setPred = useCallback((playerIdx, matchId, key, val, currentPlayers, currentPredictions) => {
-    const newPreds = {};
-    currentPlayers.forEach((_, i) => {
-      newPreds[String(i)] = { ...currentPredictions[i] };
-    });
-    newPreds[String(playerIdx)] = {
-      ...newPreds[String(playerIdx)],
-      [matchId]: { ...newPreds[String(playerIdx)]?.[matchId], [key]: val },
-    };
-    updateDoc(STATE_REF, { predictions: newPreds });
+  const setPred = useCallback((playerIdx, matchId, key, val) => {
+    updateDoc(STATE_REF, { [`predictions.${playerIdx}.${matchId}.${key}`]: val });
   }, []);
 
   const addPlayer = useCallback((currentPlayers, currentPredictions) => {
