@@ -40,7 +40,7 @@ export function getQualifiersFromPreds(playerPreds, fixtures, groups, numBest3rd
         awayScore: p?.a !== undefined && p?.a !== "" ? p.a : "",
       };
     });
-    groupStandings[g] = getStandings(GROUPS_DATA[g].teams, gf);
+    groupStandings[g] = getStandings(groups[g].teams, gf);
   });
   const slots = {};
   Object.keys(groupStandings).forEach(g => {
