@@ -70,6 +70,14 @@ function App() {
     return out;
   }, [results]);
 
+  // Equipos que clasifican realmente a 16avos (1º y 2º de cada grupo + 8 mejores 3ºs)
+  const qualifiedTeams = useMemo(() => {
+    const qualifiers = getQualifiers(results);
+    const set = new Set();
+    Object.values(qualifiers).forEach(t => { if (t?.name && !t.tbd) set.add(t.name); });
+    return set;
+  }, [results]);
+
   // Puntos por acertar clasificaciones de grupo
   const standingsScores = useMemo(() => players.map((_, pidx) => {
     let total = 0;
@@ -94,12 +102,12 @@ function App() {
         return r && r.homeScore !== "" && r.homeScore !== undefined;
       });
       if (!hasRealResults) return;
-      const sc = scoreStandings(realOrder, predOrder);
+      const sc = scoreStandings(realOrder, predOrder, qualifiedTeams);
       total += sc.total;
       if (sc.total > 0) detail.push({ group: g, ...sc });
     });
     return { total, detail };
-  }), [standings, predictions, players, results]);
+  }), [standings, predictions, players, results, qualifiedTeams]);
 
   const handleRemovePlayer = (idx) => {
     removePlayer(idx, players, predictions);
@@ -174,7 +182,7 @@ function App() {
         <EliminatoriaTab results={results} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} />
       )}
       {tab === "pronosticos" && (
-        <PronosticosTab players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} results={results} setResult={setResult} predictions={predictions} setPred={setPred} standings={standings} />
+        <PronosticosTab players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} results={results} setResult={setResult} predictions={predictions} setPred={setPred} standings={standings} qualifiedTeams={qualifiedTeams} />
       )}
       {tab === "marcador" && (
         <MarcadorTab players={players} scores={scores} standingsScores={standingsScores} results={results} predictions={predictions} activePlayerIdx={activePlayerIdx} />

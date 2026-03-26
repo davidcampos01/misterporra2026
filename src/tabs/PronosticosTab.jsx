@@ -7,9 +7,8 @@ import { FilterChip } from "../components/FilterChip";
 import { MatchRow } from "../components/MatchRow";
 
 const POS_COLORS = ["#06d6a0", "#4cc9f0", "#f5c842", "#ff6b6b"];
-const STANDINGS_PTS_LABEL = ["5pts", "3pts", "2pts", "1pt"];
 
-function PredictedStandings({ activePlayerIdx, predictions, realStandings }) {
+function PredictedStandings({ activePlayerIdx, predictions, realStandings, qualifiedTeams }) {
   const playerPreds = predictions[activePlayerIdx] ?? {};
   const color = PLAYER_COLORS[activePlayerIdx % 6];
 
@@ -41,10 +40,10 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings }) {
       if (!hasReal) return;
       const realOrder = realStandings[g].map(t => t.name);
       const predOrder = groupStandings[g].map(t => t.name);
-      out[g] = scoreStandings(realOrder, predOrder);
+      out[g] = scoreStandings(realOrder, predOrder, qualifiedTeams ?? new Set());
     });
     return out;
-  }, [groupStandings, realStandings, playerPreds]);
+  }, [groupStandings, realStandings, playerPreds, qualifiedTeams]);
 
   const totalPredicted = useMemo(
     () => FIXTURES.filter(f => {
@@ -104,14 +103,22 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings }) {
                   const posColor = POS_COLORS[i];
                   const hit = sc?.hits[i];
                   const realTeam = realSt?.[i];
-                  const correct = hit?.correct;
+                  const qualifies = qualifiedTeams?.has(realTeam?.name);
+                  const rowBg = hasReal
+                    ? (hit?.correctPos && hit?.qualBonus > 0 ? "rgba(6,214,160,.09)"
+                      : hit?.correctPos ? "rgba(6,214,160,.04)"
+                      : hit?.qualBonus > 0 ? "rgba(245,200,66,.04)"
+                      : "rgba(255,107,107,.03)")
+                    : "transparent";
+                  const leftBorder = hasReal
+                    ? (hit?.correctPos ? "#06d6a0" : hit?.qualBonus > 0 ? "#f5c842" : "#ff6b6b")
+                    : posColor;
                   return (
-                    <tr key={team.name} style={{ borderBottom: i < 3 ? "1px solid rgba(26,26,42,.6)" : "none", opacity: hasPreds ? 1 : 0.35,
-                      background: hasReal ? (correct ? "rgba(6,214,160,.05)" : "rgba(255,107,107,.04)") : "transparent" }}>
+                    <tr key={team.name} style={{ borderBottom: i < 3 ? "1px solid rgba(26,26,42,.6)" : "none", opacity: hasPreds ? 1 : 0.35, background: rowBg }}>
                       <td style={{ padding: "8px 8px" }}>
                         <div style={{ width: 18, height: 18, borderRadius: "50%", background: posColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#080811" }}>{i + 1}</div>
                       </td>
-                      <td style={{ padding: "8px 8px", borderLeft: `3px solid ${correct === true ? "#06d6a0" : correct === false ? "#ff6b6b" : posColor}` }}>
+                      <td style={{ padding: "8px 8px", borderLeft: `3px solid ${leftBorder}` }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                           <span style={{ fontSize: 15 }}>{team.flag}</span>
                           <span style={{ fontSize: 11, fontWeight: 500, color: team.pending ? "#4040a0" : "#f0f0f8" }}>{team.name}</span>
@@ -120,19 +127,26 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings }) {
                       <td style={{ padding: "8px 8px", textAlign: "center", fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 13, color: "#f5c842" }}>{team.pts}</td>
                       {hasReal && (
                         <td style={{ padding: "8px 8px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <span style={{ fontSize: 14 }}>{realTeam?.flag}</span>
                             <span style={{ fontSize: 10, color: "#8080b0" }}>{realTeam?.name}</span>
+                            {qualifies && i < 3 && <span style={{ fontSize: 8, background: "rgba(6,214,160,.15)", color: "#06d6a0", borderRadius: 4, padding: "1px 4px", fontWeight: 800, letterSpacing: .5 }}>R16</span>}
                           </div>
                         </td>
                       )}
                       {hasReal && (
-                        <td style={{ padding: "8px 8px", textAlign: "center" }}>
-                          {correct ? (
-                            <span style={{ fontSize: 10, color: "#06d6a0", fontWeight: 800 }}>✓ +{hit.pts}</span>
-                          ) : (
-                            <span style={{ fontSize: 10, color: "#ff6b6b" }}>✗ 0</span>
-                          )}
+                        <td style={{ padding: "8px 4px", textAlign: "center" }}>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+                            {hit?.correctPos && (
+                              <span style={{ fontSize: 9, color: "#06d6a0", fontWeight: 800, whiteSpace: "nowrap" }}>✓ +{hit.positionPts}</span>
+                            )}
+                            {hit?.qualBonus > 0 && (
+                              <span style={{ fontSize: 9, color: "#f5c842", fontWeight: 800, whiteSpace: "nowrap" }}>⬆ +5</span>
+                            )}
+                            {!hit?.correctPos && !hit?.qualBonus && (
+                              <span style={{ fontSize: 9, color: "#3a3a60" }}>–</span>
+                            )}
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -147,7 +161,7 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings }) {
   );
 }
 
-export function PronosticosTab({ players, activePlayerIdx, setActivePlayerIdx, results, setResult, predictions, setPred, standings }) {
+export function PronosticosTab({ players, activePlayerIdx, setActivePlayerIdx, results, setResult, predictions, setPred, standings, qualifiedTeams }) {
   const [filterGroup, setFilterGroup] = useState("ALL");
   const [view, setView] = useState("partidos");
 
@@ -220,7 +234,7 @@ export function PronosticosTab({ players, activePlayerIdx, setActivePlayerIdx, r
       )}
 
       {view === "clasificaciones" && (
-        <PredictedStandings activePlayerIdx={activePlayerIdx} predictions={predictions} realStandings={standings} />
+        <PredictedStandings activePlayerIdx={activePlayerIdx} predictions={predictions} realStandings={standings} qualifiedTeams={qualifiedTeams} />
       )}
     </div>
   );

@@ -30,15 +30,21 @@ export function scoreMatch(rh, ra, ph, pa) {
 }
 
 // Compara clasificacion real vs pronosticada (arrays de nombres en orden 1º→4º)
-// Puntos: 1º exacto=5, 2º exacto=3, 3º exacto=2, 4º exacto=1
-const STANDINGS_PTS = [5, 3, 2, 1];
-export function scoreStandings(realOrder, predictedOrder) {
+// Posicion: 1º=4pts, 2º=3pts, 3º=2pts, 4º=1pt
+// Clasificado a R16: +5pts por cada equipo pronosticado en top-3 que realmente clasifica
+const POSITION_PTS = [4, 3, 2, 1];
+export function scoreStandings(realOrder, predictedOrder, qualifiedSet = new Set()) {
   let total = 0;
   const hits = [];
-  realOrder.forEach((name, i) => {
-    const pts = predictedOrder[i] === name ? STANDINGS_PTS[i] : 0;
+  realOrder.forEach((realName, i) => {
+    const predName = predictedOrder[i];
+    const correctPos = predName === realName;
+    const positionPts = correctPos ? POSITION_PTS[i] : 0;
+    // Bonus clasificacion: solo si pronosticado en top-3 Y ese equipo clasifica de verdad
+    const qualBonus = i < 3 && predName && qualifiedSet.has(predName) ? 5 : 0;
+    const pts = positionPts + qualBonus;
     total += pts;
-    hits.push({ pos: i + 1, name, correct: pts > 0, pts });
+    hits.push({ pos: i + 1, realName, predName, correctPos, positionPts, qualBonus, pts });
   });
   return { total, hits };
 }
