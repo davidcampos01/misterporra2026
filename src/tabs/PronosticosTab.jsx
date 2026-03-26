@@ -2,13 +2,14 @@ import { useState, useMemo } from "react";
 import { GROUPS_DATA } from "../constants/groups";
 import { FIXTURES } from "../constants/fixtures";
 import { PLAYER_COLORS } from "../constants/theme";
-import { getStandings } from "../utils/scoring";
+import { getStandings, scoreStandings } from "../utils/scoring";
 import { FilterChip } from "../components/FilterChip";
 import { MatchRow } from "../components/MatchRow";
 
 const POS_COLORS = ["#06d6a0", "#4cc9f0", "#f5c842", "#ff6b6b"];
+const STANDINGS_PTS_LABEL = ["5pts", "3pts", "2pts", "1pt"];
 
-function PredictedStandings({ activePlayerIdx, predictions }) {
+function PredictedStandings({ activePlayerIdx, predictions, realStandings }) {
   const playerPreds = predictions[activePlayerIdx] ?? {};
   const color = PLAYER_COLORS[activePlayerIdx % 6];
 
@@ -29,6 +30,22 @@ function PredictedStandings({ activePlayerIdx, predictions }) {
     return out;
   }, [playerPreds]);
 
+  const standingsScoreByGroup = useMemo(() => {
+    const out = {};
+    Object.keys(GROUPS_DATA).forEach(g => {
+      if (!realStandings?.[g]) return;
+      const hasReal = FIXTURES.filter(f => f.group === g).some(f => {
+        const pred = playerPreds[f.id];
+        return pred?.h !== undefined && pred?.h !== "";
+      });
+      if (!hasReal) return;
+      const realOrder = realStandings[g].map(t => t.name);
+      const predOrder = groupStandings[g].map(t => t.name);
+      out[g] = scoreStandings(realOrder, predOrder);
+    });
+    return out;
+  }, [groupStandings, realStandings, playerPreds]);
+
   const totalPredicted = useMemo(
     () => FIXTURES.filter(f => {
       const p = playerPreds[f.id];
@@ -37,53 +54,87 @@ function PredictedStandings({ activePlayerIdx, predictions }) {
     [playerPreds]
   );
 
+  const totalStandingsPts = Object.values(standingsScoreByGroup).reduce((acc, s) => acc + s.total, 0);
+
   return (
     <div>
-      <div style={{ background: `${color.light}`, border: `1px solid ${color.bg}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: color.text, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span>Pronósticos introducidos</span>
-        <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 16 }}>{totalPredicted} / {FIXTURES.length}</span>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <div style={{ flex: 1, background: `${color.light}`, border: `1px solid ${color.bg}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: color.text, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>Pronósticos</span>
+          <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 16 }}>{totalPredicted} / {FIXTURES.length}</span>
+        </div>
+        <div style={{ flex: 1, background: "rgba(245,200,66,.08)", border: "1px solid rgba(245,200,66,.2)", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#f5c842", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>Pts clasi.</span>
+          <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 16 }}>{totalStandingsPts}</span>
+        </div>
       </div>
 
       {Object.keys(GROUPS_DATA).map(g => {
         const st = groupStandings[g];
+        const realSt = realStandings?.[g];
+        const sc = standingsScoreByGroup[g];
         const hasPreds = FIXTURES.filter(f => f.group === g).some(f => {
           const p = playerPreds[f.id];
           return p?.h !== undefined && p?.h !== "";
         });
+        const hasReal = !!sc;
 
         return (
           <div key={g} style={{ background: "#111120", border: "1px solid #1a1a2a", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "linear-gradient(90deg,rgba(123,47,255,.08),transparent)" }}>
               <span style={{ fontFamily: "'Oswald',sans-serif", fontSize: 16, letterSpacing: 2, color: "#f5c842" }}>Grupo {g}</span>
-              {!hasPreds && <span style={{ fontSize: 10, color: "#3a3a60", fontWeight: 700, letterSpacing: 1 }}>SIN PRONÓSTICOS</span>}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {hasReal && sc.total > 0 && (
+                  <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 13, color: "#f5c842" }}>+{sc.total}pts</span>
+                )}
+                {!hasPreds && <span style={{ fontSize: 10, color: "#3a3a60", fontWeight: 700, letterSpacing: 1 }}>SIN PRONÓSTICOS</span>}
+              </div>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  {["#", "Equipo", "PJ", "PTS", "DG", "GF"].map(h => (
-                    <th key={h} style={{ padding: "5px 8px", textAlign: h === "Equipo" ? "left" : "center", color: "#4040a0", fontWeight: 800, fontSize: 9, letterSpacing: 1, textTransform: "uppercase", borderBottom: "1px solid #1a1a2a" }}>{h}</th>
+                  {["#", "Pronosticado", "PTS", hasReal ? "Real" : null].filter(Boolean).map(h => (
+                    <th key={h} style={{ padding: "5px 8px", textAlign: h === "Pronosticado" || h === "Real" ? "left" : "center", color: "#4040a0", fontWeight: 800, fontSize: 9, letterSpacing: 1, textTransform: "uppercase", borderBottom: "1px solid #1a1a2a" }}>{h}</th>
                   ))}
+                  {hasReal && <th style={{ padding: "5px 8px", textAlign: "center", color: "#4040a0", fontWeight: 800, fontSize: 9, letterSpacing: 1, textTransform: "uppercase", borderBottom: "1px solid #1a1a2a" }}>Pts</th>}
                 </tr>
               </thead>
               <tbody>
                 {st.map((team, i) => {
                   const posColor = POS_COLORS[i];
-                  const gd = team.gf - team.ga;
+                  const hit = sc?.hits[i];
+                  const realTeam = realSt?.[i];
+                  const correct = hit?.correct;
                   return (
-                    <tr key={team.name} style={{ borderBottom: i < 3 ? "1px solid rgba(26,26,42,.6)" : "none", opacity: hasPreds ? 1 : 0.35 }}>
+                    <tr key={team.name} style={{ borderBottom: i < 3 ? "1px solid rgba(26,26,42,.6)" : "none", opacity: hasPreds ? 1 : 0.35,
+                      background: hasReal ? (correct ? "rgba(6,214,160,.05)" : "rgba(255,107,107,.04)") : "transparent" }}>
                       <td style={{ padding: "8px 8px" }}>
                         <div style={{ width: 18, height: 18, borderRadius: "50%", background: posColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#080811" }}>{i + 1}</div>
                       </td>
-                      <td style={{ padding: "8px 8px", borderLeft: `3px solid ${posColor}` }}>
+                      <td style={{ padding: "8px 8px", borderLeft: `3px solid ${correct === true ? "#06d6a0" : correct === false ? "#ff6b6b" : posColor}` }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                           <span style={{ fontSize: 15 }}>{team.flag}</span>
                           <span style={{ fontSize: 11, fontWeight: 500, color: team.pending ? "#4040a0" : "#f0f0f8" }}>{team.name}</span>
                         </div>
                       </td>
-                      <td style={{ padding: "8px 8px", textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 11 }}>{team.mp}</td>
                       <td style={{ padding: "8px 8px", textAlign: "center", fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 13, color: "#f5c842" }}>{team.pts}</td>
-                      <td style={{ padding: "8px 8px", textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 11, color: gd > 0 ? "#06d6a0" : gd < 0 ? "#ff6b6b" : "#4040a0" }}>{gd > 0 ? `+${gd}` : gd}</td>
-                      <td style={{ padding: "8px 8px", textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 11 }}>{team.gf}</td>
+                      {hasReal && (
+                        <td style={{ padding: "8px 8px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ fontSize: 14 }}>{realTeam?.flag}</span>
+                            <span style={{ fontSize: 10, color: "#8080b0" }}>{realTeam?.name}</span>
+                          </div>
+                        </td>
+                      )}
+                      {hasReal && (
+                        <td style={{ padding: "8px 8px", textAlign: "center" }}>
+                          {correct ? (
+                            <span style={{ fontSize: 10, color: "#06d6a0", fontWeight: 800 }}>✓ +{hit.pts}</span>
+                          ) : (
+                            <span style={{ fontSize: 10, color: "#ff6b6b" }}>✗ 0</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -96,7 +147,7 @@ function PredictedStandings({ activePlayerIdx, predictions }) {
   );
 }
 
-export function PronosticosTab({ players, activePlayerIdx, setActivePlayerIdx, results, setResult, predictions, setPred }) {
+export function PronosticosTab({ players, activePlayerIdx, setActivePlayerIdx, results, setResult, predictions, setPred, standings }) {
   const [filterGroup, setFilterGroup] = useState("ALL");
   const [view, setView] = useState("partidos");
 
@@ -169,7 +220,7 @@ export function PronosticosTab({ players, activePlayerIdx, setActivePlayerIdx, r
       )}
 
       {view === "clasificaciones" && (
-        <PredictedStandings activePlayerIdx={activePlayerIdx} predictions={predictions} />
+        <PredictedStandings activePlayerIdx={activePlayerIdx} predictions={predictions} realStandings={standings} />
       )}
     </div>
   );

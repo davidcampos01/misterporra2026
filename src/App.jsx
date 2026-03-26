@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { GROUPS_DATA } from "./constants/groups";
 import { FIXTURES } from "./constants/fixtures";
-import { getStandings, scoreMatch } from "./utils/scoring";
+import { getStandings, scoreMatch, scoreStandings } from "./utils/scoring";
+import { getQualifiers } from "./utils/knockout";
 import { css } from "./styles/global";
 import { useGameState } from "./hooks/useGameState";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -10,13 +11,15 @@ import { CalendarioTab } from "./tabs/CalendarioTab";
 import { GruposTab } from "./tabs/GruposTab";
 import { PronosticosTab } from "./tabs/PronosticosTab";
 import { MarcadorTab } from "./tabs/MarcadorTab";
+import { EliminatoriaTab } from "./tabs/EliminatoriaTab";
 
 const TABS = [
-  { id: "setup",       emoji: "⚙️",  label: "Setup"    },
-  { id: "calendario",  emoji: "📅",  label: "Calendario" },
-  { id: "grupos",      emoji: "📊",  label: "Grupos"   },
-  { id: "pronosticos", emoji: "🔮",  label: "Pronóst." },
-  { id: "marcador",    emoji: "🏆",  label: "Puntos"   },
+  { id: "setup",          emoji: "⚙️",  label: "Setup"    },
+  { id: "calendario",     emoji: "📅",  label: "Calendario" },
+  { id: "grupos",         emoji: "📊",  label: "Grupos"   },
+  { id: "eliminatorias",  emoji: "🥊",  label: "Elimin."  },
+  { id: "pronosticos",    emoji: "🔮",  label: "Pronóst." },
+  { id: "marcador",       emoji: "🏆",  label: "Puntos"   },
 ];
 
 function App() {
@@ -66,6 +69,37 @@ function App() {
     });
     return out;
   }, [results]);
+
+  // Puntos por acertar clasificaciones de grupo
+  const standingsScores = useMemo(() => players.map((_, pidx) => {
+    let total = 0;
+    const detail = [];
+    Object.keys(GROUPS_DATA).forEach(g => {
+      const realOrder = standings[g].map(t => t.name);
+      // Clasificacion predicha por este jugador
+      const playerPreds = predictions[pidx] ?? {};
+      const groupFixtures = FIXTURES.filter(f => f.group === g).map(f => {
+        const pred = playerPreds[f.id];
+        return {
+          home: f.home, away: f.away,
+          homeScore: pred?.h !== undefined && pred?.h !== "" ? pred.h : "",
+          awayScore: pred?.a !== undefined && pred?.a !== "" ? pred.a : "",
+        };
+      });
+      const predStandings = getStandings(GROUPS_DATA[g].teams, groupFixtures);
+      const predOrder = predStandings.map(t => t.name);
+      // Solo puntuar si el grupo real tiene al menos 1 partido jugado
+      const hasRealResults = FIXTURES.filter(f => f.group === g).some(f => {
+        const r = results[f.id];
+        return r && r.homeScore !== "" && r.homeScore !== undefined;
+      });
+      if (!hasRealResults) return;
+      const sc = scoreStandings(realOrder, predOrder);
+      total += sc.total;
+      if (sc.total > 0) detail.push({ group: g, ...sc });
+    });
+    return { total, detail };
+  }), [standings, predictions, players, results]);
 
   const handleRemovePlayer = (idx) => {
     removePlayer(idx, players, predictions);
@@ -136,11 +170,14 @@ function App() {
       {tab === "grupos" && (
         <GruposTab standings={standings} results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
       )}
+      {tab === "eliminatorias" && (
+        <EliminatoriaTab results={results} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} />
+      )}
       {tab === "pronosticos" && (
-        <PronosticosTab players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} results={results} setResult={setResult} predictions={predictions} setPred={setPred} />
+        <PronosticosTab players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} results={results} setResult={setResult} predictions={predictions} setPred={setPred} standings={standings} />
       )}
       {tab === "marcador" && (
-        <MarcadorTab players={players} scores={scores} results={results} predictions={predictions} activePlayerIdx={activePlayerIdx} />
+        <MarcadorTab players={players} scores={scores} standingsScores={standingsScores} results={results} predictions={predictions} activePlayerIdx={activePlayerIdx} />
       )}
     </div>
   );

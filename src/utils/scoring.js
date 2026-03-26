@@ -28,3 +28,17 @@ export function scoreMatch(rh, ra, ph, pa) {
   if (hit1x2) { pts += 4; if (hitDiff) { pts += 2; if (hitExact) pts += 4; } }
   return { pts, hit1x2, hitDiff, hitExact };
 }
+
+// Compara clasificacion real vs pronosticada (arrays de nombres en orden 1º→4º)
+// Puntos: 1º exacto=5, 2º exacto=3, 3º exacto=2, 4º exacto=1
+const STANDINGS_PTS = [5, 3, 2, 1];
+export function scoreStandings(realOrder, predictedOrder) {
+  let total = 0;
+  const hits = [];
+  realOrder.forEach((name, i) => {
+    const pts = predictedOrder[i] === name ? STANDINGS_PTS[i] : 0;
+    total += pts;
+    hits.push({ pos: i + 1, name, correct: pts > 0, pts });
+  });
+  return { total, hits };
+}
