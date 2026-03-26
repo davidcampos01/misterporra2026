@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
 const STATE_REF = doc(db, "game", "state");
@@ -10,14 +10,20 @@ const DEFAULT_STATE = {
   predictions: { "0": {}, "1": {} },
 };
 
+// Siempre usamos setDoc con merge:true — crea el documento si no existe
+// y solo actualiza los campos indicados si ya existe. Nunca falla por
+// "document not found" a diferencia de updateDoc.
+function write(data) {
+  return setDoc(STATE_REF, data, { merge: true });
+}
+
 export function useGameState() {
   const [gameState, setGameState] = useState(null);
   const [fbError, setFbError] = useState(null);
 
   useEffect(() => {
-    // Si en 8s no hay respuesta, arrancar con estado local
     const timer = setTimeout(() => {
-      setFbError("timeout");
+      setFbError("timeout: no se pudo conectar con Firestore");
       setGameState(DEFAULT_STATE);
     }, 8000);
 
@@ -29,7 +35,8 @@ export function useGameState() {
         if (snap.exists()) {
           setGameState(snap.data());
         } else {
-          setDoc(STATE_REF, DEFAULT_STATE);
+          // Documento no existe → crearlo con el estado inicial
+          write(DEFAULT_STATE);
           setGameState(DEFAULT_STATE);
         }
       },
@@ -43,14 +50,12 @@ export function useGameState() {
     return () => { clearTimeout(timer); unsub(); };
   }, []);
 
-  // results y predictions son MAPAS en Firestore → dot-notation es seguro
-  // y elimina race conditions al no depender del estado local previo
   const setResult = useCallback((matchId, key, val) => {
-    updateDoc(STATE_REF, { [`results.${matchId}.${key}`]: val });
+    write({ results: { [matchId]: { [key]: val } } });
   }, []);
 
   const setPred = useCallback((playerIdx, matchId, key, val) => {
-    updateDoc(STATE_REF, { [`predictions.${playerIdx}.${matchId}.${key}`]: val });
+    write({ predictions: { [playerIdx]: { [matchId]: { [key]: val } } } });
   }, []);
 
   const addPlayer = useCallback((currentPlayers, currentPredictions) => {
@@ -58,10 +63,7 @@ export function useGameState() {
     const newPreds = {};
     currentPlayers.forEach((_, i) => { newPreds[String(i)] = { ...currentPredictions[i] }; });
     newPreds[String(idx)] = {};
-    updateDoc(STATE_REF, {
-      players: [...currentPlayers, { name: `Jugador ${idx + 1}` }],
-      predictions: newPreds,
-    });
+    write({ players: [...currentPlayers, { name: `Jugador ${idx + 1}` }], predictions: newPreds });
   }, []);
 
   const removePlayer = useCallback((idx, currentPlayers, currentPredictions) => {
@@ -72,12 +74,12 @@ export function useGameState() {
     for (let i = 0; i < currentPlayers.length; i++) {
       if (i !== idx) { newPreds[String(newIdx)] = currentPredictions[i] ?? {}; newIdx++; }
     }
-    updateDoc(STATE_REF, { players: newPlayers, predictions: newPreds });
+    write({ players: newPlayers, predictions: newPreds });
   }, []);
 
   const renamePlayer = useCallback((idx, name, currentPlayers) => {
     const newPlayers = currentPlayers.map((p, i) => i === idx ? { ...p, name } : p);
-    updateDoc(STATE_REF, { players: newPlayers });
+    write({ players: newPlayers });
   }, []);
 
   return { gameState, fbError, setResult, setPred, addPlayer, removePlayer, renamePlayer };
