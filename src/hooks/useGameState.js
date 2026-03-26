@@ -81,5 +81,9 @@ export function useGameState(tournamentId) {
     write({ players: newPlayers });
   }, [write]);
 
-  return { gameState, fbError, setResult, setPred, addPlayer, removePlayer, renamePlayer };
+  const setResults = useCallback((newResults) => {
+    return write({ results: newResults });
+  }, [write]);
+
+  return { gameState, fbError, setResult, setResults, setPred, addPlayer, removePlayer, renamePlayer };
 }

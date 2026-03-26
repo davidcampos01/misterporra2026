@@ -52,7 +52,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
   const fixtures = tournament.fixtures;
   const groups = tournament.groups;
 
-  const { gameState, fbError, setResult, setPred, addPlayer, removePlayer, renamePlayer } = useGameState(tournamentId);
+  const { gameState, fbError, setResult, setResults, setPred, addPlayer, removePlayer, renamePlayer } = useGameState(tournamentId);
 
   // Normalizar players
   const rawPlayers = gameState?.players ?? [];
@@ -180,7 +180,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
         </nav>
 
         {tab === "setup" && (
-          <SetupTab players={players} scores={scores} renamePlayer={(idx, name) => renamePlayer(idx, name, players)} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players, predictions)} tournament={tournament} />
+          <SetupTab players={players} scores={scores} renamePlayer={(idx, name) => renamePlayer(idx, name, players)} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players, predictions)} tournament={tournament} onSync={setResults} />
         )}
         {tab === "calendario" && (
           <CalendarioTab results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />

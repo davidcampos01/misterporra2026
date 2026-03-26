@@ -3,7 +3,7 @@ import { PLAYER_COLORS } from "../constants/theme";
 
 const SYNC_KEY = import.meta.env.VITE_SYNC_KEY;
 
-export function SetupTab({ players, scores, renamePlayer, removePlayer, addPlayer, tournament }) {
+export function SetupTab({ players, scores, renamePlayer, removePlayer, addPlayer, tournament, onSync }) {
   const [syncState, setSyncState] = useState(null); // null | "loading" | "ok" | "error"
   const [syncMsg, setSyncMsg] = useState("");
 
@@ -19,6 +19,8 @@ export function SetupTab({ players, scores, renamePlayer, removePlayer, addPlaye
       const res = await fetch(`/api/sync-results?tournament=${tournament.id}&key=${SYNC_KEY}`);
       const data = await res.json();
       if (res.ok && data.ok) {
+        // Escribir resultados en Firestore desde el frontend (sin firebase-admin)
+        await onSync(data.results);
         setSyncState("ok");
         setSyncMsg(`✓ ${data.matched} partidos actualizados`);
       } else {
