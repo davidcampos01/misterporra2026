@@ -1,11 +1,11 @@
 import { useState, useMemo } from "react";
-import { GROUPS_DATA } from "./constants/groups";
-import { FIXTURES } from "./constants/fixtures";
 import { getStandings, scoreMatch, scoreStandings } from "./utils/scoring";
 import { getQualifiers } from "./utils/knockout";
 import { css } from "./styles/global";
 import { useGameState } from "./hooks/useGameState";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { TournamentContext } from "./context/TournamentContext";
+import { TOURNAMENTS } from "./lib/tournaments";
 import { SetupTab } from "./tabs/SetupTab";
 import { CalendarioTab } from "./tabs/CalendarioTab";
 import { GruposTab } from "./tabs/GruposTab";
@@ -22,11 +22,45 @@ const TABS = [
   { id: "marcador",       emoji: "🏆",  label: "Puntos"   },
 ];
 
+function TournamentSelector({ onSelect }) {
+  const list = Object.values(TOURNAMENTS);
+  return (
+    <div style={{ background: "#080811", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 24 }}>
+      <style>{css}</style>
+      <div style={{ fontSize: 52 }}>🏆</div>
+      <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 26, letterSpacing: 4, color: "#f5c842", textAlign: "center" }}>MISTER PORRA</div>
+      <div style={{ color: "#4040a0", fontSize: 11, letterSpacing: 3, textTransform: "uppercase" }}>Selecciona el torneo</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 340 }}>
+        {list.map(t => (
+          <button key={t.id} onClick={() => onSelect(t.id)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", background: "#111120", border: `1px solid ${t.accentColor}44`, borderRadius: 14, cursor: "pointer", color: "#f0f0f8", textAlign: "left", width: "100%" }}>
+            <span style={{ fontSize: 32 }}>{t.emoji}</span>
+            <div>
+              <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 16, letterSpacing: 2, color: t.accentColor }}>{t.name}</div>
+              <div style={{ fontSize: 11, color: "#4040a0", marginTop: 2 }}>{t.fullName}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [tab, setTab] = useState("grupos");
   const [activePlayerIdx, setActivePlayerIdx] = useState(0);
+  const [tournamentId, setTournamentId] = useState(
+    () => localStorage.getItem("misterporra_tournament") ?? null
+  );
 
-  const { gameState, fbError, setResult, setPred, addPlayer, removePlayer, renamePlayer } = useGameState();
+  const tournament = tournamentId ? TOURNAMENTS[tournamentId] : null;
+  const fixtures = tournament?.fixtures ?? [];
+  const groups = tournament?.groups ?? {};
+
+  const { gameState, fbError, setResult, setPred, addPlayer, removePlayer, renamePlayer } = useGameState(tournamentId);
+
+  if (!tournamentId || !tournament) {
+    return <TournamentSelector onSelect={id => { localStorage.setItem("misterporra_tournament", id); setTournamentId(id); }} />;
+  }
 
   // Derivar datos del estado (con defaults seguros para cuando aún no hay estado)
   // Normalizar players: Firestore puede devolverlo como objeto si hubo dot-notation
@@ -46,7 +80,7 @@ function App() {
   // Todos los useMemo ANTES de cualquier return condicional (regla de hooks)
   const scores = useMemo(() => players.map((_, pidx) => {
     let total = 0, detail = [];
-    FIXTURES.forEach(m => {
+    fixtures.forEach(m => {
       const r = results[m.id];
       const p = predictions[pidx]?.[m.id];
       if (!r || r.homeScore === "" || r.awayScore === "" || !p || p.h === "" || p.h === undefined) return;
@@ -55,38 +89,38 @@ function App() {
       if (result.pts > 0) detail.push({ m, ...result });
     });
     return { total, detail };
-  }), [results, predictions, players]);
+  }), [results, predictions, players, fixtures]);
 
   const standings = useMemo(() => {
     const out = {};
-    Object.keys(GROUPS_DATA).forEach(g => {
-      const groupFixtures = FIXTURES.filter(f => f.group === g).map(f => ({
+    Object.keys(groups).forEach(g => {
+      const groupFixtures = fixtures.filter(f => f.group === g && f.matchday).map(f => ({
         home: f.home, away: f.away,
         homeScore: results[f.id]?.homeScore ?? "",
         awayScore: results[f.id]?.awayScore ?? "",
       }));
-      out[g] = getStandings(GROUPS_DATA[g].teams, groupFixtures);
+      out[g] = getStandings(groups[g].teams, groupFixtures);
     });
     return out;
-  }, [results]);
+  }, [results, groups, fixtures]);
 
-  // Equipos que clasifican realmente a 16avos (1º y 2º de cada grupo + 8 mejores 3ºs)
+  // Equipos que clasifican realmente a 16avos (1º y 2º de cada grupo + mejores 3ºs)
   const qualifiedTeams = useMemo(() => {
-    const qualifiers = getQualifiers(results);
+    const qualifiers = getQualifiers(results, fixtures, groups, tournament.numBest3rds);
     const set = new Set();
     Object.values(qualifiers).forEach(t => { if (t?.name && !t.tbd) set.add(t.name); });
     return set;
-  }, [results]);
+  }, [results, fixtures, groups, tournament]);
 
   // Puntos por acertar clasificaciones de grupo
   const standingsScores = useMemo(() => players.map((_, pidx) => {
     let total = 0;
     const detail = [];
-    Object.keys(GROUPS_DATA).forEach(g => {
-      const realOrder = standings[g].map(t => t.name);
+    Object.keys(groups).forEach(g => {
+      const realOrder = standings[g]?.map(t => t.name) ?? [];
       // Clasificacion predicha por este jugador
       const playerPreds = predictions[pidx] ?? {};
-      const groupFixtures = FIXTURES.filter(f => f.group === g).map(f => {
+      const groupFixtures = fixtures.filter(f => f.group === g && f.matchday).map(f => {
         const pred = playerPreds[f.id];
         return {
           home: f.home, away: f.away,
@@ -94,10 +128,10 @@ function App() {
           awayScore: pred?.a !== undefined && pred?.a !== "" ? pred.a : "",
         };
       });
-      const predStandings = getStandings(GROUPS_DATA[g].teams, groupFixtures);
+      const predStandings = getStandings(groups[g].teams, groupFixtures);
       const predOrder = predStandings.map(t => t.name);
       // Solo puntuar si el grupo real tiene al menos 1 partido jugado
-      const hasRealResults = FIXTURES.filter(f => f.group === g).some(f => {
+      const hasRealResults = fixtures.filter(f => f.group === g && f.matchday).some(f => {
         const r = results[f.id];
         return r && r.homeScore !== "" && r.homeScore !== undefined;
       });
@@ -107,7 +141,7 @@ function App() {
       if (sc.total > 0) detail.push({ group: g, ...sc });
     });
     return { total, detail };
-  }), [standings, predictions, players, results, qualifiedTeams]);
+  }), [standings, predictions, players, results, qualifiedTeams, groups, fixtures]);
 
   const handleRemovePlayer = (idx) => {
     removePlayer(idx, players, predictions);
@@ -134,6 +168,7 @@ function App() {
   }
 
   return (
+    <TournamentContext.Provider value={{ fixtures, groups, tournament }}>
     <div style={{ fontFamily: "'DM Sans',sans-serif", background: "#080811", minHeight: "100vh", color: "#f0f0f8", paddingBottom: 80 }}>
       <style>{css}</style>
 
@@ -144,13 +179,14 @@ function App() {
         position: "relative", overflow: "hidden",
       }}>
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 70% 50% at 50% -5%,rgba(245,200,66,.15) 0%,transparent 70%)", pointerEvents: "none" }} />
-        <div style={{ fontSize: 46, position: "relative" }}>🏆</div>
-        <h1 style={{ fontFamily: "'Oswald',sans-serif", fontSize: 40, letterSpacing: 5, color: "#f5c842", lineHeight: 1, textShadow: "0 0 40px rgba(245,200,66,.3)", position: "relative" }}>
-          MUNDIAL 2026
+        <div style={{ fontSize: 46, position: "relative" }}>{tournament.emoji}</div>
+        <h1 style={{ fontFamily: "'Oswald',sans-serif", fontSize: 40, letterSpacing: 5, color: tournament.accentColor, lineHeight: 1, textShadow: `0 0 40px ${tournament.accentLight}`, position: "relative" }}>
+          {tournament.name}
         </h1>
         <p style={{ color: "#4040a0", fontSize: 11, letterSpacing: 3, textTransform: "uppercase", marginTop: 5, position: "relative" }}>
-          Misterporra · {players.length} jugadores · 104 partidos
+          Misterporra · {players.length} jugadores
         </p>
+        <button onClick={() => { localStorage.removeItem("misterporra_tournament"); setTournamentId(null); }} style={{ marginTop: 4, background: "none", border: "none", color: "#2a2a50", fontSize: 10, cursor: "pointer", letterSpacing: 1, textTransform: "uppercase" }}>cambiar torneo</button>
       </div>
 
       {/* NAV */}
@@ -188,6 +224,7 @@ function App() {
         <MarcadorTab players={players} scores={scores} standingsScores={standingsScores} results={results} predictions={predictions} activePlayerIdx={activePlayerIdx} />
       )}
     </div>
+    </TournamentContext.Provider>
   );
 }
 

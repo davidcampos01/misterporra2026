@@ -2,26 +2,21 @@ import { useEffect, useState, useCallback } from "react";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
-const STATE_REF = doc(db, "game", "state");
-
 const DEFAULT_STATE = {
   players: [{ name: "Jugador 1" }, { name: "Jugador 2" }],
   results: {},
   predictions: { "0": {}, "1": {} },
 };
 
-// Siempre usamos setDoc con merge:true — crea el documento si no existe
-// y solo actualiza los campos indicados si ya existe. Nunca falla por
-// "document not found" a diferencia de updateDoc.
-function write(data) {
-  return setDoc(STATE_REF, data, { merge: true });
-}
-
-export function useGameState() {
+export function useGameState(tournamentId) {
   const [gameState, setGameState] = useState(null);
   const [fbError, setFbError] = useState(null);
 
   useEffect(() => {
+    if (!tournamentId) return;
+    const STATE_REF = doc(db, "game", tournamentId);
+    const write = (data) => setDoc(STATE_REF, data, { merge: true });
+
     const timer = setTimeout(() => {
       setFbError("timeout: no se pudo conectar con Firestore");
       setGameState(DEFAULT_STATE);
@@ -35,7 +30,6 @@ export function useGameState() {
         if (snap.exists()) {
           setGameState(snap.data());
         } else {
-          // Documento no existe → crearlo con el estado inicial
           write(DEFAULT_STATE);
           setGameState(DEFAULT_STATE);
         }
@@ -48,15 +42,20 @@ export function useGameState() {
       }
     );
     return () => { clearTimeout(timer); unsub(); };
-  }, []);
+  }, [tournamentId]);
+
+  const write = useCallback((data) => {
+    if (!tournamentId) return;
+    return setDoc(doc(db, "game", tournamentId), data, { merge: true });
+  }, [tournamentId]);
 
   const setResult = useCallback((matchId, key, val) => {
     write({ results: { [matchId]: { [key]: val } } });
-  }, []);
+  }, [write]);
 
   const setPred = useCallback((playerIdx, matchId, key, val) => {
     write({ predictions: { [playerIdx]: { [matchId]: { [key]: val } } } });
-  }, []);
+  }, [write]);
 
   const addPlayer = useCallback((currentPlayers, currentPredictions) => {
     const idx = currentPlayers.length;
@@ -64,7 +63,7 @@ export function useGameState() {
     currentPlayers.forEach((_, i) => { newPreds[String(i)] = { ...currentPredictions[i] }; });
     newPreds[String(idx)] = {};
     write({ players: [...currentPlayers, { name: `Jugador ${idx + 1}` }], predictions: newPreds });
-  }, []);
+  }, [write]);
 
   const removePlayer = useCallback((idx, currentPlayers, currentPredictions) => {
     if (currentPlayers.length <= 2) return;
@@ -75,12 +74,12 @@ export function useGameState() {
       if (i !== idx) { newPreds[String(newIdx)] = currentPredictions[i] ?? {}; newIdx++; }
     }
     write({ players: newPlayers, predictions: newPreds });
-  }, []);
+  }, [write]);
 
   const renamePlayer = useCallback((idx, name, currentPlayers) => {
     const newPlayers = currentPlayers.map((p, i) => i === idx ? { ...p, name } : p);
     write({ players: newPlayers });
-  }, []);
+  }, [write]);
 
   return { gameState, fbError, setResult, setPred, addPlayer, removePlayer, renamePlayer };
 }

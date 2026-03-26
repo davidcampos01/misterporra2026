@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { GROUPS_DATA } from "../constants/groups";
-import { FIXTURES } from "../constants/fixtures";
 import { MatchRow } from "../components/MatchRow";
+import { useTournament } from "../context/TournamentContext";
 
 export function GruposTab({ standings, results, setResult, predictions, players, activePlayerIdx }) {
+  const { fixtures, groups } = useTournament();
   const [expandedGroups, setExpandedGroups] = useState({});
 
   return (
     <div style={{ padding: 16 }} className="fade-in">
       <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 24, letterSpacing: 2, marginBottom: 14 }}>Clasificaciones</div>
-      {Object.keys(GROUPS_DATA).map(g => {
+      {Object.keys(groups).map(g => {
         const open = expandedGroups[g];
         const st = standings[g];
         return (
@@ -64,7 +64,7 @@ export function GruposTab({ standings, results, setResult, predictions, players,
 
                 <div style={{ padding: "10px 12px", borderTop: "1px solid #1a1a2a" }}>
                   <div style={{ fontSize: 10, color: "#4040a0", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>Resultados</div>
-                  {FIXTURES.filter(f => f.group === g).map(m => (
+                  {fixtures.filter(f => f.group === g).map(m => (
                     <MatchRow key={m.id} match={m}
                       resultData={results[m.id]}
                       onResultChange={(key, val) => setResult(m.id, key, val)}

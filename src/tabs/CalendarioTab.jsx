@@ -1,19 +1,20 @@
 import { useState, useMemo } from "react";
-import { GROUPS_DATA } from "../constants/groups";
-import { FIXTURES } from "../constants/fixtures";
 import { MATCHDAY_LABEL } from "../constants/theme";
 import { FilterChip } from "../components/FilterChip";
 import { MatchRow } from "../components/MatchRow";
+import { useTournament } from "../context/TournamentContext";
 
 export function CalendarioTab({ results, setResult, predictions, players, activePlayerIdx }) {
+  const { fixtures, groups } = useTournament();
   const [filterGroup, setFilterGroup] = useState("ALL");
   const [filterMatchday, setFilterMatchday] = useState("ALL");
 
-  const filteredFixtures = useMemo(() => FIXTURES.filter(f => {
+  const filteredFixtures = useMemo(() => fixtures.filter(f => {
+    if (!f.matchday) return false; // omitir rondas eliminatorias
     if (filterGroup !== "ALL" && f.group !== filterGroup) return false;
     if (filterMatchday !== "ALL" && String(f.matchday) !== filterMatchday) return false;
     return true;
-  }), [filterGroup, filterMatchday]);
+  }), [fixtures, filterGroup, filterMatchday]);
 
   return (
     <div style={{ padding: 16 }} className="fade-in">
@@ -25,7 +26,7 @@ export function CalendarioTab({ results, setResult, predictions, players, active
       {/* Filtro por grupo */}
       <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto", paddingBottom: 4 }}>
         <FilterChip label="Todos" active={filterGroup === "ALL"} onClick={() => setFilterGroup("ALL")} />
-        {Object.keys(GROUPS_DATA).map(g => (
+        {Object.keys(groups).map(g => (
           <FilterChip key={g} label={`Gr.${g}`} active={filterGroup === g} onClick={() => setFilterGroup(g)} />
         ))}
       </div>

@@ -1,21 +1,21 @@
 import { useState, useMemo } from "react";
-import { GROUPS_DATA } from "../constants/groups";
-import { FIXTURES } from "../constants/fixtures";
 import { PLAYER_COLORS } from "../constants/theme";
 import { getStandings, scoreStandings } from "../utils/scoring";
 import { FilterChip } from "../components/FilterChip";
 import { MatchRow } from "../components/MatchRow";
+import { useTournament } from "../context/TournamentContext";
 
 const POS_COLORS = ["#06d6a0", "#4cc9f0", "#f5c842", "#ff6b6b"];
 
 function PredictedStandings({ activePlayerIdx, predictions, realStandings, qualifiedTeams }) {
+  const { fixtures, groups } = useTournament();
   const playerPreds = predictions[activePlayerIdx] ?? {};
   const color = PLAYER_COLORS[activePlayerIdx % 6];
 
   const groupStandings = useMemo(() => {
     const out = {};
-    Object.keys(GROUPS_DATA).forEach(g => {
-      const groupFixtures = FIXTURES.filter(f => f.group === g).map(f => {
+    Object.keys(groups).forEach(g => {
+      const groupFixtures = fixtures.filter(f => f.group === g).map(f => {
         const pred = playerPreds[f.id];
         return {
           home: f.home,
@@ -24,33 +24,35 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
           awayScore: pred?.a !== undefined && pred?.a !== "" ? pred.a : "",
         };
       });
-      out[g] = getStandings(GROUPS_DATA[g].teams, groupFixtures);
+      out[g] = getStandings(groups[g].teams, groupFixtures);
     });
     return out;
   }, [playerPreds]);
 
   const standingsScoreByGroup = useMemo(() => {
     const out = {};
-    Object.keys(GROUPS_DATA).forEach(g => {
+    Object.keys(groups).forEach(g => {
       if (!realStandings?.[g]) return;
-      const hasReal = FIXTURES.filter(f => f.group === g).some(f => {
-        const pred = playerPreds[f.id];
-        return pred?.h !== undefined && pred?.h !== "";
-      });
+      const hasReal = realStandings[g].some(t => t.mp > 0);
       if (!hasReal) return;
       const realOrder = realStandings[g].map(t => t.name);
       const predOrder = groupStandings[g].map(t => t.name);
       out[g] = scoreStandings(realOrder, predOrder, qualifiedTeams ?? new Set());
     });
     return out;
-  }, [groupStandings, realStandings, playerPreds, qualifiedTeams]);
+  }, [groupStandings, realStandings, qualifiedTeams, groups]);
 
   const totalPredicted = useMemo(
-    () => FIXTURES.filter(f => {
+    () => fixtures.filter(f => {
+      if (!f.matchday) return false; // solo fase de grupos
       const p = playerPreds[f.id];
       return p?.h !== undefined && p?.h !== "" && p?.a !== undefined && p?.a !== "";
     }).length,
-    [playerPreds]
+    [playerPreds, fixtures]
+  );
+  const totalGroupFixtures = useMemo(
+    () => fixtures.filter(f => !!f.matchday).length,
+    [fixtures]
   );
 
   const totalStandingsPts = Object.values(standingsScoreByGroup).reduce((acc, s) => acc + s.total, 0);
@@ -60,7 +62,7 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <div style={{ flex: 1, background: `${color.light}`, border: `1px solid ${color.bg}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: color.text, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>Pronósticos</span>
-          <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 16 }}>{totalPredicted} / {FIXTURES.length}</span>
+          <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 16 }}>{totalPredicted} / {totalGroupFixtures}</span>
         </div>
         <div style={{ flex: 1, background: "rgba(245,200,66,.08)", border: "1px solid rgba(245,200,66,.2)", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#f5c842", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>Pts clasi.</span>
@@ -68,11 +70,11 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
         </div>
       </div>
 
-      {Object.keys(GROUPS_DATA).map(g => {
+      {Object.keys(groups).map(g => {
         const st = groupStandings[g];
         const realSt = realStandings?.[g];
         const sc = standingsScoreByGroup[g];
-        const hasPreds = FIXTURES.filter(f => f.group === g).some(f => {
+        const hasPreds = fixtures.filter(f => f.group === g).some(f => {
           const p = playerPreds[f.id];
           return p?.h !== undefined && p?.h !== "";
         });
@@ -162,12 +164,13 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
 }
 
 export function PronosticosTab({ players, activePlayerIdx, setActivePlayerIdx, results, setResult, predictions, setPred, standings, qualifiedTeams }) {
+  const { fixtures, groups } = useTournament();
   const [filterGroup, setFilterGroup] = useState("ALL");
   const [view, setView] = useState("partidos");
 
   const filteredFixtures = useMemo(
-    () => FIXTURES.filter(f => filterGroup === "ALL" || f.group === filterGroup),
-    [filterGroup]
+    () => fixtures.filter(f => f.matchday && (filterGroup === "ALL" || f.group === filterGroup)),
+    [fixtures, filterGroup]
   );
 
   const color = PLAYER_COLORS[activePlayerIdx % 6];
@@ -216,7 +219,7 @@ export function PronosticosTab({ players, activePlayerIdx, setActivePlayerIdx, r
           {/* Filtro por grupo */}
           <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto", paddingBottom: 4 }}>
             <FilterChip label="Todos" active={filterGroup === "ALL"} onClick={() => setFilterGroup("ALL")} />
-            {Object.keys(GROUPS_DATA).map(g => (
+            {Object.keys(groups).map(g => (
               <FilterChip key={g} label={`Gr.${g}`} active={filterGroup === g} onClick={() => setFilterGroup(g)} />
             ))}
           </div>

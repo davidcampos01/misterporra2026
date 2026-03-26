@@ -1,20 +1,18 @@
-import { GROUPS_DATA } from "../constants/groups";
-import { FIXTURES } from "../constants/fixtures";
 import { getStandings } from "./scoring";
 
-// Obtiene clasificados: 1º y 2º de cada grupo + 8 mejores 3ºs
-export function getQualifiers(results) {
+// Obtiene clasificados: 1º y 2º de cada grupo + N mejores 3ºs
+// fixtures y groups se pasan desde el contexto de torneo
+export function getQualifiers(results, fixtures, groups, numBest3rds = 8) {
   const groupStandings = {};
-  Object.keys(GROUPS_DATA).forEach(g => {
-    const gf = FIXTURES.filter(f => f.group === g).map(f => ({
+  Object.keys(groups).forEach(g => {
+    const gf = fixtures.filter(f => f.group === g).map(f => ({
       home: f.home, away: f.away,
       homeScore: results[f.id]?.homeScore ?? "",
       awayScore: results[f.id]?.awayScore ?? "",
     }));
-    groupStandings[g] = getStandings(GROUPS_DATA[g].teams, gf);
+    groupStandings[g] = getStandings(groups[g].teams, gf);
   });
 
-  // Teams indexed by slot: "1A", "2B", etc.
   const slots = {};
   Object.keys(groupStandings).forEach(g => {
     const st = groupStandings[g];
@@ -23,20 +21,18 @@ export function getQualifiers(results) {
     slots[`3${g}`] = { ...st[2], slot: `3${g}`, pts3: st[2]?.pts, gf3: st[2]?.gf, gd3: (st[2]?.gf ?? 0) - (st[2]?.ga ?? 0) };
   });
 
-  // 8 mejores 3ºs por pts → dif goles → goles a favor
-  const thirds = Object.keys(GROUPS_DATA).map(g => slots[`3${g}`]).filter(Boolean);
+  const thirds = Object.keys(groups).map(g => slots[`3${g}`]).filter(Boolean);
   thirds.sort((a, b) => (b.pts3 - a.pts3) || (b.gd3 - a.gd3) || (b.gf3 - a.gf3));
-  const best8thirds = thirds.slice(0, 8);
-  best8thirds.forEach((t, i) => { slots[`T${i + 1}`] = { ...t, slot: `T${i + 1}` }; });
+  thirds.slice(0, numBest3rds).forEach((t, i) => { slots[`T${i + 1}`] = { ...t, slot: `T${i + 1}` }; });
 
   return slots;
 }
 
 // Obtiene clasificados usando predicciones de un jugador
-export function getQualifiersFromPreds(playerPreds) {
+export function getQualifiersFromPreds(playerPreds, fixtures, groups, numBest3rds = 8) {
   const groupStandings = {};
-  Object.keys(GROUPS_DATA).forEach(g => {
-    const gf = FIXTURES.filter(f => f.group === g).map(f => {
+  Object.keys(groups).forEach(g => {
+    const gf = fixtures.filter(f => f.group === g).map(f => {
       const p = playerPreds[f.id];
       return {
         home: f.home, away: f.away,
@@ -53,9 +49,9 @@ export function getQualifiersFromPreds(playerPreds) {
     slots[`2${g}`] = { ...st[1], slot: `2${g}` };
     slots[`3${g}`] = { ...st[2], slot: `3${g}`, pts3: st[2]?.pts, gf3: st[2]?.gf, gd3: (st[2]?.gf ?? 0) - (st[2]?.ga ?? 0) };
   });
-  const thirds = Object.keys(GROUPS_DATA).map(g => slots[`3${g}`]).filter(Boolean);
+  const thirds = Object.keys(groups).map(g => slots[`3${g}`]).filter(Boolean);
   thirds.sort((a, b) => (b.pts3 - a.pts3) || (b.gd3 - a.gd3) || (b.gf3 - a.gf3));
-  thirds.slice(0, 8).forEach((t, i) => { slots[`T${i + 1}`] = { ...t, slot: `T${i + 1}` }; });
+  thirds.slice(0, numBest3rds).forEach((t, i) => { slots[`T${i + 1}`] = { ...t, slot: `T${i + 1}` }; });
   return slots;
 }
 
@@ -164,4 +160,35 @@ export function buildBracket(qualifiers, knockoutResults = {}) {
   const final = { id: "FINAL", teamA: wSF1, teamB: wSF2 };
 
   return { r32, r16, qf, sf, tercerPuesto, final };
+}
+
+// ── Bracket Euro 2024 (R16 → QF → SF → Final) ────────────────────────────────
+// Los partidos de eliminatorias están en fixtures con group="R16"/"QF"/"SF"/"FINAL"
+// Los equipos (home/away) son strings — buscar flag en flagMap del componente
+export function buildEuroBracket(fixtures, results) {
+  const sort = (arr) => [...arr].sort((a, b) => a.id - b.id);
+  const r16  = sort(fixtures.filter(f => f.group === "R16"));
+  const qf   = sort(fixtures.filter(f => f.group === "QF"));
+  const sf   = sort(fixtures.filter(f => f.group === "SF"));
+  const fin  = fixtures.find(f => f.group === "FINAL") ?? null;
+
+  const enrichMatch = (m) => {
+    const r = results[m.id];
+    const hasResult = r && r.homeScore !== "" && r.homeScore !== undefined;
+    let winner = null;
+    if (hasResult) {
+      if (r.winner === "A") winner = m.home;
+      else if (r.winner === "B") winner = m.away;
+      else if (+r.homeScore > +r.awayScore) winner = m.home;
+      else if (+r.homeScore < +r.awayScore) winner = m.away;
+    }
+    return { ...m, result: hasResult ? r : null, winner };
+  };
+
+  return {
+    r16:   r16.map(enrichMatch),
+    qf:    qf.map(enrichMatch),
+    sf:    sf.map(enrichMatch),
+    final: fin ? enrichMatch(fin) : null,
+  };
 }

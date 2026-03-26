@@ -1,9 +1,9 @@
-import { GROUPS_DATA } from "../constants/groups";
-import { FIXTURES } from "../constants/fixtures";
 import { PLAYER_COLORS } from "../constants/theme";
 import { MatchRow } from "../components/MatchRow";
+import { useTournament } from "../context/TournamentContext";
 
 export function MarcadorTab({ players, scores, standingsScores, results, predictions, activePlayerIdx }) {
+  const { fixtures, groups } = useTournament();
   return (
     <div style={{ padding: 16 }} className="fade-in">
       {/* Marcador global */}
@@ -84,7 +84,7 @@ export function MarcadorTab({ players, scores, standingsScores, results, predict
                   {sc.detail.slice(-5).reverse().map((d, j) => (
                     <div key={j} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, padding: "4px 0", borderBottom: "1px solid #13131f" }}>
                       <span style={{ color: "#8080b0" }}>
-                        {GROUPS_DATA[d.m.group].teams.find(t => t.name === d.m.home)?.flag} {d.m.home} vs {d.m.away} {GROUPS_DATA[d.m.group].teams.find(t => t.name === d.m.away)?.flag}
+                        {groups[d.m.group]?.teams.find(t => t.name === d.m.home)?.flag} {d.m.home} vs {d.m.away} {groups[d.m.group]?.teams.find(t => t.name === d.m.away)?.flag}
                       </span>
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <span style={{ fontSize: 10, color: "#06d6a0" }}>
@@ -102,7 +102,7 @@ export function MarcadorTab({ players, scores, standingsScores, results, predict
 
       {/* Detalle por partido */}
       <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 18, letterSpacing: 2, color: "#4cc9f0", margin: "16px 0 10px" }}>Detalle por partido</div>
-      {FIXTURES.filter(f => results[f.id]?.homeScore !== undefined && results[f.id]?.homeScore !== "").map(m => (
+      {fixtures.filter(f => results[f.id]?.homeScore !== undefined && results[f.id]?.homeScore !== "").map(m => (
         <MatchRow key={m.id} match={m}
           resultData={results[m.id]}
           onResultChange={() => {}}
