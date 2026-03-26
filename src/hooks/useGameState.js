@@ -11,19 +11,36 @@ const DEFAULT_STATE = {
 };
 
 export function useGameState() {
-  const [gameState, setGameState] = useState(null); // null = cargando
+  const [gameState, setGameState] = useState(null);
+  const [fbError, setFbError] = useState(null);
 
   useEffect(() => {
-    const unsub = onSnapshot(STATE_REF, (snap) => {
-      if (snap.exists()) {
-        setGameState(snap.data());
-      } else {
-        // Primera vez: inicializar el documento
-        setDoc(STATE_REF, DEFAULT_STATE);
+    // Si en 8s no hay respuesta, arrancar con estado local
+    const timer = setTimeout(() => {
+      setFbError("timeout");
+      setGameState(DEFAULT_STATE);
+    }, 8000);
+
+    const unsub = onSnapshot(
+      STATE_REF,
+      (snap) => {
+        clearTimeout(timer);
+        setFbError(null);
+        if (snap.exists()) {
+          setGameState(snap.data());
+        } else {
+          setDoc(STATE_REF, DEFAULT_STATE);
+          setGameState(DEFAULT_STATE);
+        }
+      },
+      (err) => {
+        clearTimeout(timer);
+        console.error("Firestore error:", err.code, err.message);
+        setFbError(err.code ?? err.message);
         setGameState(DEFAULT_STATE);
       }
-    });
-    return unsub;
+    );
+    return () => { clearTimeout(timer); unsub(); };
   }, []);
 
   const setResult = useCallback((matchId, key, val) => {
@@ -61,5 +78,5 @@ export function useGameState() {
     updateDoc(STATE_REF, { [`players.${idx}.name`]: name });
   }, []);
 
-  return { gameState, setResult, setPred, addPlayer, removePlayer, renamePlayer };
+  return { gameState, fbError, setResult, setPred, addPlayer, removePlayer, renamePlayer };
 }

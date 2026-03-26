@@ -22,16 +22,22 @@ export default function App() {
   const [tab, setTab] = useState("grupos");
   const [activePlayerIdx, setActivePlayerIdx] = useState(0);
 
-  const { gameState, setResult, setPred, addPlayer, removePlayer, renamePlayer } = useGameState();
+  const { gameState, fbError, setResult, setPred, addPlayer, removePlayer, renamePlayer } = useGameState();
 
-  // Pantalla de carga mientras Firestore responde
   if (!gameState) {
     return (
-      <div style={{ background: "#080811", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+      <div style={{ background: "#080811", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24 }}>
         <style>{css}</style>
         <div style={{ fontSize: 52 }}>🏆</div>
         <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 28, letterSpacing: 4, color: "#f5c842" }}>MUNDIAL 2026</div>
-        <div style={{ fontSize: 12, color: "#4040a0", letterSpacing: 2, textTransform: "uppercase" }}>Conectando…</div>
+        {fbError ? (
+          <div style={{ background: "rgba(255,107,107,.1)", border: "1px solid #ff6b6b", borderRadius: 10, padding: "12px 20px", color: "#ff8888", fontSize: 12, textAlign: "center", maxWidth: 360 }}>
+            ⚠️ Error al conectar con Firebase:<br />
+            <code style={{ fontFamily: "monospace", fontSize: 11, color: "#ff6b6b" }}>{fbError}</code>
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: "#4040a0", letterSpacing: 2, textTransform: "uppercase" }}>Conectando…</div>
+        )}
       </div>
     );
   }
