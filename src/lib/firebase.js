@@ -1,13 +1,15 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
+// La config de Firebase es pública por diseño; la seguridad real
+// se gestiona mediante las Firestore Security Rules.
 const firebaseConfig = {
-  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId:             import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey:            "AIzaSyCD8pl8PP5KaeDLKLdFs5d-xmYRCeGUP_4",
+  authDomain:        "misterporra2026.firebaseapp.com",
+  projectId:         "misterporra2026",
+  storageBucket:     "misterporra2026.firebasestorage.app",
+  messagingSenderId: "972956450910",
+  appId:             "1:972956450910:web:26cf36dce90539f27274cf",
 };
 
 const app = initializeApp(firebaseConfig);
