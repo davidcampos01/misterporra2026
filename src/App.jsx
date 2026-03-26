@@ -25,36 +25,14 @@ function App() {
 
   const { gameState, fbError, setResult, setPred, addPlayer, removePlayer, renamePlayer } = useGameState();
 
-  if (!gameState) {
-    return (
-      <div style={{ background: "#080811", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24 }}>
-        <style>{css}</style>
-        <div style={{ fontSize: 52 }}>🏆</div>
-        <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 28, letterSpacing: 4, color: "#f5c842" }}>MUNDIAL 2026</div>
-        {fbError ? (
-          <div style={{ background: "rgba(255,107,107,.1)", border: "1px solid #ff6b6b", borderRadius: 10, padding: "12px 20px", color: "#ff8888", fontSize: 12, textAlign: "center", maxWidth: 360 }}>
-            ⚠️ Error al conectar con Firebase:<br />
-            <code style={{ fontFamily: "monospace", fontSize: 11, color: "#ff6b6b" }}>{fbError}</code>
-          </div>
-        ) : (
-          <div style={{ fontSize: 12, color: "#4040a0", letterSpacing: 2, textTransform: "uppercase" }}>Conectando…</div>
-        )}
-      </div>
-    );
-  }
-
-  const players = gameState.players ?? [];
-  const results = gameState.results ?? {};
-  // Firestore guarda predictions como objeto {"0":{},"1":{}}, normalizamos a array
-  const predictions = Array.isArray(gameState.predictions)
+  // Derivar datos del estado (con defaults seguros para cuando aún no hay estado)
+  const players = gameState?.players ?? [];
+  const results = gameState?.results ?? {};
+  const predictions = Array.isArray(gameState?.predictions)
     ? gameState.predictions
-    : players.map((_, i) => gameState.predictions?.[String(i)] ?? {});
+    : players.map((_, i) => gameState?.predictions?.[String(i)] ?? {});
 
-  const handleRemovePlayer = (idx) => {
-    removePlayer(idx, players, predictions);
-    if (activePlayerIdx >= players.length - 1) setActivePlayerIdx(Math.max(0, activePlayerIdx - 1));
-  };
-
+  // Todos los useMemo ANTES de cualquier return condicional (regla de hooks)
   const scores = useMemo(() => players.map((_, pidx) => {
     let total = 0, detail = [];
     FIXTURES.forEach(m => {
@@ -80,6 +58,30 @@ function App() {
     });
     return out;
   }, [results]);
+
+  const handleRemovePlayer = (idx) => {
+    removePlayer(idx, players, predictions);
+    if (activePlayerIdx >= players.length - 1) setActivePlayerIdx(Math.max(0, activePlayerIdx - 1));
+  };
+
+  // Pantalla de carga / error (DESPUÉS de todos los hooks)
+  if (!gameState) {
+    return (
+      <div style={{ background: "#080811", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24 }}>
+        <style>{css}</style>
+        <div style={{ fontSize: 52 }}>🏆</div>
+        <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 28, letterSpacing: 4, color: "#f5c842" }}>MUNDIAL 2026</div>
+        {fbError ? (
+          <div style={{ background: "rgba(255,107,107,.1)", border: "1px solid #ff6b6b", borderRadius: 10, padding: "12px 20px", color: "#ff8888", fontSize: 12, textAlign: "center", maxWidth: 360 }}>
+            ⚠️ Error al conectar con Firebase:<br />
+            <code style={{ fontFamily: "monospace", fontSize: 11, color: "#ff6b6b" }}>{fbError}</code>
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: "#4040a0", letterSpacing: 2, textTransform: "uppercase" }}>Conectando…</div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={{ fontFamily: "'DM Sans',sans-serif", background: "#080811", minHeight: "100vh", color: "#f0f0f8", paddingBottom: 80 }}>
