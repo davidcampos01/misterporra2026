@@ -162,30 +162,59 @@ export function buildBracket(qualifiers, knockoutResults = {}) {
   return { r32, r16, qf, sf, tercerPuesto, final };
 }
 
-// ── Bracket Euro de PREDICCIONES de un jugador ───────────────────────────────
-// ── Cruces R16 Euro 2024 (slots UEFA oficiales) ──────────────────────────────
-// slotA/slotB: 1X = 1º grupo X, 2X = 2º grupo X, T1-T4 = mejores 3ºs por ránking
-export const EURO_R16_SLOTS = [
-  { matchId: 1037, slotA: "1A", slotB: "2C" },  // 1A vs 2C
-  { matchId: 1038, slotA: "1B", slotB: "T4" },  // 1B vs 4º mejor 3º
-  { matchId: 1039, slotA: "2D", slotB: "1E" },  // 2D vs 1E
-  { matchId: 1040, slotA: "1F", slotB: "T3" },  // 1F vs 3er mejor 3º
-  { matchId: 1041, slotA: "2E", slotB: "T1" },  // 2E vs mejor 3º
-  { matchId: 1042, slotA: "1D", slotB: "2F" },  // 1D vs 2F
-  { matchId: 1043, slotA: "1C", slotB: "T2" },  // 1C vs 2º mejor 3º
-  { matchId: 1044, slotA: "2A", slotB: "2B" },  // 2A vs 2B
+// ── Tabla oficial UEFA Euro 2024 para asignación de terceros en R16 ───────────
+// Clave: 4 grupos clasificados como terceros, ordenados alfab. (ej: "CDEF")
+// Valor: { posición → letra del grupo cuyo 3er clasificado va ahí }
+// Posiciones: B=vs1B(m1038), C=vs1C(m1043), E=vs1E(m1041), F=vs1F(m1040)
+// Garantiza que ningún 3er clasificado se enfrente a un equipo de su mismo grupo
+const UEFA_THIRD_PLACE_TABLE = {
+  ABCD: { B:"A", C:"D", E:"B", F:"C" },
+  ABCE: { B:"A", C:"E", E:"B", F:"C" },
+  ABCF: { B:"A", C:"F", E:"B", F:"C" },
+  ABDE: { B:"D", C:"E", E:"A", F:"B" },
+  ABDF: { B:"D", C:"F", E:"A", F:"B" },
+  ABEF: { B:"E", C:"F", E:"A", F:"B" },
+  ACDE: { B:"E", C:"D", E:"C", F:"A" },
+  ACDF: { B:"F", C:"D", E:"C", F:"A" },
+  ACEF: { B:"E", C:"F", E:"C", F:"A" },
+  ADEF: { B:"E", C:"F", E:"D", F:"A" },
+  BCDE: { B:"E", C:"D", E:"C", F:"B" },
+  BCDF: { B:"F", C:"D", E:"C", F:"B" },
+  BCEF: { B:"F", C:"E", E:"C", F:"B" },
+  BDEF: { B:"F", C:"E", E:"D", F:"B" },
+  CDEF: { B:"F", C:"E", E:"D", F:"C" },
+};
+
+// Estructura R16 Euro 2024 (orden importa: pares 0-1, 2-3, 4-5, 6-7 forman los QF)
+// slotA/slotB: posición fija | thirdPos: posición de la tabla UEFA (B/C/E/F)
+// Verificado con Euro 2024 real: 1037=1Avs2C, 1038=1Bvs3F, 1039=2Dvs2E,
+//   1040=1Fvs3C, 1041=1Evs3D, 1042=1Dvs2F, 1043=1Cvs3E, 1044=2Avs2B
+const EURO_R16_STRUCTURE = [
+  { matchId: 1037, slotA: "1A", slotB: "2C"  },  // fijo
+  { matchId: 1038, slotA: "1B", thirdPos: "B" }, // 1B vs 3er del grupo asignado por tabla
+  { matchId: 1039, slotA: "2D", slotB: "2E"  },  // fijo
+  { matchId: 1040, slotA: "1F", thirdPos: "F" }, // 1F vs 3er del grupo asignado por tabla
+  { matchId: 1041, slotA: "1E", thirdPos: "E" }, // 1E vs 3er del grupo asignado por tabla
+  { matchId: 1042, slotA: "1D", slotB: "2F"  },  // fijo
+  { matchId: 1043, slotA: "1C", thirdPos: "C" }, // 1C vs 3er del grupo asignado por tabla
+  { matchId: 1044, slotA: "2A", slotB: "2B"  },  // fijo
 ];
 
-// Bracket de PREDICCIONES del jugador para Euro (6 grupos, R16 via slots UEFA)
-// Usa los clasificados pronosticados (1º/2º/mejores 3ºs) de fase de grupos
+// Bracket de PREDICCIONES del jugador para Euro (6 grupos, R16 via tabla UEFA oficial)
+// Los terceros se emparejan según qué grupos clasifican, evitando mismo-grupo
 export function buildPredBracket(fixtures, playerPreds, groups, numBest3rds = 4) {
   const qualifiers = getQualifiersFromPreds(playerPreds, fixtures, groups, numBest3rds);
 
-  const resolveName = (slot) => qualifiers[slot]?.name ?? null;
-
-  const qfFx = [...fixtures.filter(f => f.group === "QF")].sort((a, b) => a.id - b.id);
-  const sfFx = [...fixtures.filter(f => f.group === "SF")].sort((a, b) => a.id - b.id);
-  const finFx = fixtures.find(f => f.group === "FINAL") ?? null;
+  // Determinar los 4 grupos cuyos 3ºs clasifican (los mejores por pts/DG/GF)
+  const allThirds = Object.keys(groups).map(g => ({
+    group: g,
+    pts: qualifiers[`3${g}`]?.pts3 ?? -1,
+    gd:  qualifiers[`3${g}`]?.gd3  ?? -999,
+    gf:  qualifiers[`3${g}`]?.gf3  ?? -999,
+  }));
+  allThirds.sort((a, b) => (b.pts - a.pts) || (b.gd - a.gd) || (b.gf - a.gf));
+  const comboKey = allThirds.slice(0, numBest3rds).map(t => t.group).sort().join("");
+  const allocation = UEFA_THIRD_PLACE_TABLE[comboKey] ?? {};
 
   const getPredWinner = (home, away, matchId) => {
     if (!home || !away) return null;
@@ -193,18 +222,28 @@ export function buildPredBracket(fixtures, playerPreds, groups, numBest3rds = 4)
     if (!p || p.h === "" || p.h === undefined || p.a === "" || p.a === undefined) return null;
     if (+p.h > +p.a) return home;
     if (+p.h < +p.a) return away;
-    return null; // empate en KO → sin ganador
+    return null;
   };
 
-  // R16: equipos desde clasificados predichos en grupos (no hardcodeados del fixture)
-  const r16 = EURO_R16_SLOTS.map(slot => {
-    const home = resolveName(slot.slotA);
-    const away = resolveName(slot.slotB);
+  // R16: equipos desde clasificados predichos + tabla UEFA para terceros
+  const r16 = EURO_R16_STRUCTURE.map(slot => {
+    const home = qualifiers[slot.slotA]?.name ?? null;
+    let away;
+    if (slot.slotB) {
+      away = qualifiers[slot.slotB]?.name ?? null;
+    } else {
+      const srcGroup = allocation[slot.thirdPos];
+      away = srcGroup ? (qualifiers[`3${srcGroup}`]?.name ?? null) : null;
+    }
     const winner = getPredWinner(home, away, slot.matchId);
     const p = playerPreds?.[slot.matchId];
     const hasPred = home && away && p && p.h !== "" && p.h !== undefined && p.a !== "" && p.a !== undefined;
-    return { id: slot.matchId, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner, slotA: slot.slotA, slotB: slot.slotB };
+    return { id: slot.matchId, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner };
   });
+
+  const qfFx = [...fixtures.filter(f => f.group === "QF")].sort((a, b) => a.id - b.id);
+  const sfFx = [...fixtures.filter(f => f.group === "SF")].sort((a, b) => a.id - b.id);
+  const finFx = fixtures.find(f => f.group === "FINAL") ?? null;
 
   // QF: ganadores R16[i*2] vs R16[i*2+1]
   const qf = qfFx.map((m, i) => {
