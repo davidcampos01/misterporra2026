@@ -1,9 +1,8 @@
 import { PLAYER_COLORS } from "../constants/theme";
-import { MatchRow } from "../components/MatchRow";
 import { useTournament } from "../context/TournamentContext";
 
 export function MarcadorTab({ players, scores, standingsScores, koScores, results, predictions, activePlayerIdx }) {
-  const { fixtures, groups } = useTournament();
+  const { groups } = useTournament();
   return (
     <div style={{ padding: 16 }} className="fade-in">
       {/* Marcador global */}
@@ -116,46 +115,11 @@ export function MarcadorTab({ players, scores, standingsScores, koScores, result
                     ))}</div>
                 </div>
               )}
-              {/* Detalle de aciertos en partidos */}
-              {sc?.detail?.length > 0 && (
-                <div style={{ borderTop: "1px solid #1a1a2a", padding: "8px 14px" }}>
-                  <div style={{ fontSize: 10, color: "#4040a0", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Aciertos destacados</div>
-                  {sc.detail.slice(-5).reverse().map((d, j) => (
-                    <div key={j} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, padding: "4px 0", borderBottom: "1px solid #13131f" }}>
-                      <span style={{ color: "#8080b0" }}>
-                        {groups[d.m.group]?.teams.find(t => t.name === d.m.home)?.flag} {d.m.home} vs {d.m.away} {groups[d.m.group]?.teams.find(t => t.name === d.m.away)?.flag}
-                      </span>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        <span style={{ fontSize: 10, color: "#06d6a0" }}>
-                          {d.hitExact ? "⬥ Exacto" : d.hitDiff ? "◈ Dif." : "◇ 1X2"}
-                        </span>
-                        <span style={{ background: color.bg, color: "#fff", borderRadius: 5, padding: "2px 7px", fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 11 }}>+{d.pts}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           );
         })}
 
-      {/* Detalle por partido */}
-      <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 18, letterSpacing: 2, color: "#4cc9f0", margin: "16px 0 10px" }}>Detalle por partido</div>
-      {fixtures.filter(f => results[f.id]?.homeScore !== undefined && results[f.id]?.homeScore !== "").map(m => (
-        <MatchRow key={m.id} match={m}
-          resultData={results[m.id]}
-          onResultChange={() => {}}
-          predictions={predictions} players={players}
-          activePlayerIdx={activePlayerIdx}
-          onPredChange={() => {}}
-          mode="scoreboard"
-        />
-      ))}
-      {Object.keys(results).length === 0 && (
-        <div style={{ textAlign: "center", color: "#4040a0", fontSize: 13, padding: 30 }}>
-          Introduce resultados en el Calendario o en Grupos para ver los puntos aquí.
-        </div>
-      )}
+
     </div>
   );
 }

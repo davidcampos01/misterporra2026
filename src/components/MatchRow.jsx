@@ -87,25 +87,30 @@ export function MatchRow({ match, resultData, onResultChange, predictions, playe
         </div>
       </div>
 
-      {/* Scores strip (marcador tab) */}
-      {mode === "scoreboard" && rh !== "" && (
-        <div style={{ marginTop: 8, borderTop: "1px solid #1a1a2a", paddingTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>
-          {players.map((pl, idx) => {
-            const pred = predictions[idx]?.[match.id];
-            if (!pred || pred.h === "" || pred.h === undefined) return null;
-            const { pts, hitExact, hitDiff, hit1x2 } = scoreMatch(+rh, +ra, +pred.h, +pred.a);
-            const color = PLAYER_COLORS[idx % 6];
-            return (
-              <div key={idx} style={{ display: "flex", alignItems: "center", gap: 4, background: color.light, border: `1px solid ${color.bg}`, borderRadius: 6, padding: "2px 7px", fontSize: 11 }}>
-                <span style={{ color: color.text, fontWeight: 700 }}>{pl.name.slice(0, 8)}</span>
-                <span style={{ fontFamily: "'Space Mono',monospace", color: color.text }}>{pred.h}–{pred.a}</span>
-                {pts > 0 && <span style={{ background: color.bg, color: "#fff", borderRadius: 4, padding: "1px 5px", fontWeight: 800, fontSize: 10 }}>+{pts}</span>}
-                {pts === 0 && <span style={{ color: "#3a3a60", fontSize: 10 }}>✗</span>}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* Scores strip */}
+      {(mode === "scoreboard" || mode === "results") && players?.length > 0 && (() => {
+        const hasResult = rh !== "" && ra !== "";
+        const pills = players.map((pl, idx) => {
+          const pred = predictions[idx]?.[match.id];
+          if (!pred || pred.h === "" || pred.h === undefined) return null;
+          const color = PLAYER_COLORS[idx % 6];
+          const sc = hasResult ? scoreMatch(+rh, +ra, +pred.h, +pred.a) : null;
+          return (
+            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 4, background: color.light, border: `1px solid ${color.bg}`, borderRadius: 6, padding: "2px 7px", fontSize: 11 }}>
+              <span style={{ color: color.text, fontWeight: 700 }}>{pl.name.slice(0, 8)}</span>
+              <span style={{ fontFamily: "'Space Mono',monospace", color: color.text }}>{pred.h}–{pred.a}</span>
+              {sc !== null && sc.pts > 0 && <span style={{ background: color.bg, color: "#fff", borderRadius: 4, padding: "1px 5px", fontWeight: 800, fontSize: 10 }}>+{sc.pts}</span>}
+              {sc !== null && sc.pts === 0 && <span style={{ color: "#3a3a60", fontSize: 10 }}>✗</span>}
+            </div>
+          );
+        }).filter(Boolean);
+        if (!pills.length) return null;
+        return (
+          <div style={{ marginTop: 8, borderTop: "1px solid #1a1a2a", paddingTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {pills}
+          </div>
+        );
+      })()}
     </div>
   );
 }
