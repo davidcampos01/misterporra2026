@@ -206,7 +206,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
           <GruposTab standings={standings} results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
         )}
         {tab === "eliminatorias" && (
-          <EliminatoriaTab results={results} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} />
+          <EliminatoriaTab results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} />
         )}
         {tab === "pronosticos" && (
           <PronosticosTab players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} results={results} setResult={setResult} predictions={predictions} setPred={setPred} standings={standings} qualifiedTeams={qualifiedTeams} flagMap={flagMap} />

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { PLAYER_COLORS } from "../constants/theme";
 import { getQualifiers, getQualifiersFromPreds, buildBracket, buildEuroBracket } from "../utils/knockout";
 import { useTournament } from "../context/TournamentContext";
+import { ScoreInput } from "../components/ScoreInput";
 
 // ── Componentes compartidos ───────────────────────────────────────────────────
 
@@ -40,20 +41,50 @@ function WCMatchCard({ match, knockoutResults, size = "md", label }) {
 }
 
 // Tarjeta Euro — teams son strings, flags via flagMap
-function EuroMatchCard({ match, flagMap, size = "md", label }) {
+// onResultChange: si se pasa, muestra inputs editables
+function EuroMatchCard({ match, flagMap, size = "md", label, onResultChange }) {
   const { result, winner } = match;
+  const rh = result?.homeScore ?? "";
+  const ra = result?.awayScore ?? "";
+  const isDraw = rh !== "" && ra !== "" && String(rh) === String(ra);
+  const penH = result?.penaltyHome ?? "";
+  const penA = result?.penaltyAway ?? "";
+
   return (
-    <div style={{ background: "#111120", border: "1px solid #1a1a2a", borderRadius: 10, overflow: "hidden", minWidth: size === "lg" ? 165 : 140 }}>
+    <div style={{ background: "#111120", border: "1px solid #1a1a2a", borderRadius: 10, overflow: "hidden", minWidth: onResultChange ? 185 : size === "lg" ? 165 : 140 }}>
       {label && <div style={{ fontSize: 9, color: "#3a3a60", fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", padding: "5px 8px 3px", borderBottom: "1px solid #1a1a2a" }}>{label}</div>}
       <div style={{ padding: "6px 4px", display: "flex", flexDirection: "column", gap: 3 }}>
         <TeamBox name={match.home} flag={flagMap[match.home]} isWinner={winner === match.home} isLoser={winner && winner !== match.home} size={size} />
-        <div style={{ textAlign: "center", fontSize: 9, color: "#2a2a50", fontWeight: 800, letterSpacing: 1 }}>VS</div>
+        {onResultChange ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "4px 0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <ScoreInput value={rh} onChange={v => onResultChange("homeScore", v)} />
+              <span style={{ color: "#2a2a40", fontWeight: 800, fontSize: 14 }}>–</span>
+              <ScoreInput value={ra} onChange={v => onResultChange("awayScore", v)} />
+            </div>
+            {isDraw && (
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <input type="number" min="0" max="99" value={penH}
+                  onChange={e => onResultChange("penaltyHome", e.target.value)}
+                  placeholder="–" style={{ width: 30, height: 28, background: "#0a0a14", border: "1.5px solid #a066ff", borderRadius: 6, color: "#f0f0f8", fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, textAlign: "center", outline: "none" }} />
+                <span style={{ fontSize: 9, color: "#a066ff", fontWeight: 800, letterSpacing: 1 }}>PEN</span>
+                <input type="number" min="0" max="99" value={penA}
+                  onChange={e => onResultChange("penaltyAway", e.target.value)}
+                  placeholder="–" style={{ width: 30, height: 28, background: "#0a0a14", border: "1.5px solid #a066ff", borderRadius: 6, color: "#f0f0f8", fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, textAlign: "center", outline: "none" }} />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ textAlign: "center", fontSize: 9, color: "#2a2a50", fontWeight: 800, letterSpacing: 1 }}>VS</div>
+        )}
         <TeamBox name={match.away} flag={flagMap[match.away]} isWinner={winner === match.away} isLoser={winner && winner !== match.away} size={size} />
       </div>
-      {result && <div style={{ textAlign: "center", padding: "4px 0 6px", fontFamily: "'Space Mono',monospace", fontSize: size === "lg" ? 16 : 13, fontWeight: 800, color: "#f5c842" }}>
-        {result.homeScore} – {result.awayScore}
-        {result.penaltyHome !== undefined && <span style={{ fontSize: 10, color: "#a066ff", marginLeft: 5 }}>({result.penaltyHome}-{result.penaltyAway} pen)</span>}
-      </div>}
+      {!onResultChange && result && (
+        <div style={{ textAlign: "center", padding: "4px 0 6px", fontFamily: "'Space Mono',monospace", fontSize: size === "lg" ? 16 : 13, fontWeight: 800, color: "#f5c842" }}>
+          {result.homeScore} – {result.awayScore}
+          {result.penaltyHome !== undefined && result.penaltyHome !== "" && <span style={{ fontSize: 10, color: "#a066ff", marginLeft: 5 }}>({result.penaltyHome}-{result.penaltyAway} pen)</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -109,19 +140,20 @@ function QualifiersGrid({ qualifiers, groups, numBest3rds }) {
 }
 
 // ── Euro bracket (usa fixtures de R16/QF/SF/FINAL) ───────────────────────────
-function EuroBracket({ results, flagMap }) {
+function EuroBracket({ results, setResult, flagMap }) {
   const { fixtures } = useTournament();
   const br = useMemo(() => buildEuroBracket(fixtures, results), [fixtures, results]);
   if (!br) return null;
+  const mkChange = (id) => setResult ? (key, val) => setResult(id, key, val) : undefined;
   return (
     <>
-      <RoundSection title="Octavos de Final">{br.r16.map((m, i) => <EuroMatchCard key={m.id} match={m} flagMap={flagMap} label={`Partido ${i + 1}`} />)}</RoundSection>
-      <RoundSection title="Cuartos de Final">{br.qf.map((m, i) => <EuroMatchCard key={m.id} match={m} flagMap={flagMap} label={`CF ${i + 1}`} />)}</RoundSection>
-      <RoundSection title="Semifinales">{br.sf.map((m, i) => <EuroMatchCard key={m.id} match={m} flagMap={flagMap} label={`SF ${i + 1}`} size="lg" />)}</RoundSection>
+      <RoundSection title="Octavos de Final">{br.r16.map((m, i) => <EuroMatchCard key={m.id} match={m} flagMap={flagMap} label={`Partido ${i + 1}`} onResultChange={mkChange(m.id)} />)}</RoundSection>
+      <RoundSection title="Cuartos de Final">{br.qf.map((m, i) => <EuroMatchCard key={m.id} match={m} flagMap={flagMap} label={`CF ${i + 1}`} onResultChange={mkChange(m.id)} />)}</RoundSection>
+      <RoundSection title="Semifinales">{br.sf.map((m, i) => <EuroMatchCard key={m.id} match={m} flagMap={flagMap} label={`SF ${i + 1}`} size="lg" onResultChange={mkChange(m.id)} />)}</RoundSection>
       {br.final && (
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 14, letterSpacing: 3, color: "#f5c842", textTransform: "uppercase", marginBottom: 10, paddingBottom: 5, borderBottom: "1px solid #1a1a2a" }}>🏆 Final</div>
-          <EuroMatchCard match={br.final} flagMap={flagMap} size="lg" />
+          <EuroMatchCard match={br.final} flagMap={flagMap} size="lg" onResultChange={mkChange(br.final.id)} />
         </div>
       )}
     </>
@@ -151,7 +183,7 @@ function WCBracket({ qualifiers }) {
 }
 
 // ── Tab Eliminatorias ─────────────────────────────────────────────────────────
-export function EliminatoriaTab({ results, predictions, players, activePlayerIdx, setActivePlayerIdx }) {
+export function EliminatoriaTab({ results, setResult, predictions, players, activePlayerIdx, setActivePlayerIdx }) {
   const { fixtures, groups, tournament } = useTournament();
   const [mode, setMode] = useState("real");
   const isEuro = tournament.id === "euro2024";
@@ -189,7 +221,7 @@ export function EliminatoriaTab({ results, predictions, players, activePlayerIdx
         </div>
       )}
       <QualifiersGrid qualifiers={qualifiers} groups={groups} numBest3rds={tournament.numBest3rds} />
-      {isEuro ? <EuroBracket results={results} flagMap={flagMap} /> : <WCBracket qualifiers={qualifiers} />}
+      {isEuro ? <EuroBracket results={results} setResult={mode === "real" ? setResult : undefined} flagMap={flagMap} /> : <WCBracket qualifiers={qualifiers} />}
     </div>
   );
 }

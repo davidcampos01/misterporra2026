@@ -293,10 +293,15 @@ export function buildEuroBracket(fixtures, results) {
     const hasResult = r && r.homeScore !== "" && r.homeScore !== undefined;
     let winner = null;
     if (hasResult) {
+      const h = +r.homeScore, a = +r.awayScore;
       if (r.winner === "A") winner = m.home;
       else if (r.winner === "B") winner = m.away;
-      else if (+r.homeScore > +r.awayScore) winner = m.home;
-      else if (+r.homeScore < +r.awayScore) winner = m.away;
+      else if (h > a) winner = m.home;
+      else if (h < a) winner = m.away;
+      else if (r.penaltyHome !== "" && r.penaltyHome !== undefined) {
+        if (+r.penaltyHome > +r.penaltyAway) winner = m.home;
+        else if (+r.penaltyHome < +r.penaltyAway) winner = m.away;
+      }
     }
     return { ...m, result: hasResult ? r : null, winner };
   };
