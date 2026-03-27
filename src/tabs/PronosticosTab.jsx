@@ -59,6 +59,89 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
 
   const totalStandingsPts = Object.values(standingsScoreByGroup).reduce((acc, s) => acc + s.total, 0);
 
+  const renderGroup = (g) => {
+    const st = groupStandings[g];
+    const realSt = realStandings?.[g];
+    const sc = standingsScoreByGroup[g];
+    const hasPreds = fixtures.filter(f => f.group === g).some(f => {
+      const p = playerPreds[f.id];
+      return p?.h !== undefined && p?.h !== "";
+    });
+    const hasReal = !!sc;
+    return (
+      <div key={g} style={{ background: "#111120", border: "1px solid #1a1a2a", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "linear-gradient(90deg,rgba(123,47,255,.08),transparent)" }}>
+          <span style={{ fontFamily: "'Oswald',sans-serif", fontSize: 16, letterSpacing: 2, color: "#f5c842" }}>Grupo {g}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {hasReal && sc.total > 0 && (
+              <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 13, color: "#f5c842" }}>+{sc.total}pts</span>
+            )}
+            {!hasPreds && <span style={{ fontSize: 10, color: "#3a3a60", fontWeight: 700, letterSpacing: 1 }}>SIN PRONÓSTICOS</span>}
+          </div>
+        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              {["#", "Pronosticado", "PTS", hasReal ? "Real" : null].filter(Boolean).map(h => (
+                <th key={h} style={{ padding: "5px 8px", textAlign: h === "Pronosticado" || h === "Real" ? "left" : "center", color: "#4040a0", fontWeight: 800, fontSize: 9, letterSpacing: 1, textTransform: "uppercase", borderBottom: "1px solid #1a1a2a" }}>{h}</th>
+              ))}
+              {hasReal && <th style={{ padding: "5px 8px", textAlign: "center", color: "#4040a0", fontWeight: 800, fontSize: 9, letterSpacing: 1, textTransform: "uppercase", borderBottom: "1px solid #1a1a2a" }}>Pts</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {st.map((team, i) => {
+              const posColor = POS_COLORS[i];
+              const hit = sc?.hits[i];
+              const realTeam = realSt?.[i];
+              const qualifies = qualifiedTeams?.has(realTeam?.name);
+              const rowBg = hasReal
+                ? (hit?.correctPos && hit?.qualBonus > 0 ? "rgba(6,214,160,.09)"
+                  : hit?.correctPos ? "rgba(6,214,160,.04)"
+                  : hit?.qualBonus > 0 ? "rgba(245,200,66,.04)"
+                  : "rgba(255,107,107,.03)")
+                : "transparent";
+              const leftBorder = hasReal
+                ? (hit?.correctPos ? "#06d6a0" : hit?.qualBonus > 0 ? "#f5c842" : "#ff6b6b")
+                : posColor;
+              return (
+                <tr key={team.name} style={{ borderBottom: i < 3 ? "1px solid rgba(26,26,42,.6)" : "none", opacity: hasPreds ? 1 : 0.35, background: rowBg }}>
+                  <td style={{ padding: "8px 8px" }}>
+                    <div style={{ width: 18, height: 18, borderRadius: "50%", background: posColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#080811" }}>{i + 1}</div>
+                  </td>
+                  <td style={{ padding: "8px 8px", borderLeft: `3px solid ${leftBorder}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      <span style={{ fontSize: 15 }}>{team.flag}</span>
+                      <span style={{ fontSize: 11, fontWeight: 500, color: team.pending ? "#4040a0" : "#f0f0f8" }}>{team.name}</span>
+                    </div>
+                  </td>
+                  <td style={{ padding: "8px 8px", textAlign: "center", fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 13, color: "#f5c842" }}>{team.pts}</td>
+                  {hasReal && (
+                    <td style={{ padding: "8px 8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ fontSize: 14 }}>{realTeam?.flag}</span>
+                        <span style={{ fontSize: 10, color: "#8080b0" }}>{realTeam?.name}</span>
+                        {qualifies && i < 3 && <span style={{ fontSize: 8, background: "rgba(6,214,160,.15)", color: "#06d6a0", borderRadius: 4, padding: "1px 4px", fontWeight: 800, letterSpacing: .5 }}>R16</span>}
+                      </div>
+                    </td>
+                  )}
+                  {hasReal && (
+                    <td style={{ padding: "8px 4px", textAlign: "center" }}>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+                        {hit?.correctPos && <span style={{ fontSize: 9, color: "#06d6a0", fontWeight: 800, whiteSpace: "nowrap" }}>✓ +{hit.positionPts}</span>}
+                        {hit?.qualBonus > 0 && <span style={{ fontSize: 9, color: "#f5c842", fontWeight: 800, whiteSpace: "nowrap" }}>⬆ +5</span>}
+                        {!hit?.correctPos && !hit?.qualBonus && <span style={{ fontSize: 9, color: "#3a3a60" }}>–</span>}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   return (
     <div>
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -72,95 +155,13 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
         </div>
       </div>
 
-      {Object.keys(groups).map(g => {
-        const st = groupStandings[g];
-        const realSt = realStandings?.[g];
-        const sc = standingsScoreByGroup[g];
-        const hasPreds = fixtures.filter(f => f.group === g).some(f => {
-          const p = playerPreds[f.id];
-          return p?.h !== undefined && p?.h !== "";
-        });
-        const hasReal = !!sc;
-
-        return (
-          <div key={g} style={{ background: "#111120", border: "1px solid #1a1a2a", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "linear-gradient(90deg,rgba(123,47,255,.08),transparent)" }}>
-              <span style={{ fontFamily: "'Oswald',sans-serif", fontSize: 16, letterSpacing: 2, color: "#f5c842" }}>Grupo {g}</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {hasReal && sc.total > 0 && (
-                  <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 13, color: "#f5c842" }}>+{sc.total}pts</span>
-                )}
-                {!hasPreds && <span style={{ fontSize: 10, color: "#3a3a60", fontWeight: 700, letterSpacing: 1 }}>SIN PRONÓSTICOS</span>}
-              </div>
-            </div>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  {["#", "Pronosticado", "PTS", hasReal ? "Real" : null].filter(Boolean).map(h => (
-                    <th key={h} style={{ padding: "5px 8px", textAlign: h === "Pronosticado" || h === "Real" ? "left" : "center", color: "#4040a0", fontWeight: 800, fontSize: 9, letterSpacing: 1, textTransform: "uppercase", borderBottom: "1px solid #1a1a2a" }}>{h}</th>
-                  ))}
-                  {hasReal && <th style={{ padding: "5px 8px", textAlign: "center", color: "#4040a0", fontWeight: 800, fontSize: 9, letterSpacing: 1, textTransform: "uppercase", borderBottom: "1px solid #1a1a2a" }}>Pts</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {st.map((team, i) => {
-                  const posColor = POS_COLORS[i];
-                  const hit = sc?.hits[i];
-                  const realTeam = realSt?.[i];
-                  const qualifies = qualifiedTeams?.has(realTeam?.name);
-                  const rowBg = hasReal
-                    ? (hit?.correctPos && hit?.qualBonus > 0 ? "rgba(6,214,160,.09)"
-                      : hit?.correctPos ? "rgba(6,214,160,.04)"
-                      : hit?.qualBonus > 0 ? "rgba(245,200,66,.04)"
-                      : "rgba(255,107,107,.03)")
-                    : "transparent";
-                  const leftBorder = hasReal
-                    ? (hit?.correctPos ? "#06d6a0" : hit?.qualBonus > 0 ? "#f5c842" : "#ff6b6b")
-                    : posColor;
-                  return (
-                    <tr key={team.name} style={{ borderBottom: i < 3 ? "1px solid rgba(26,26,42,.6)" : "none", opacity: hasPreds ? 1 : 0.35, background: rowBg }}>
-                      <td style={{ padding: "8px 8px" }}>
-                        <div style={{ width: 18, height: 18, borderRadius: "50%", background: posColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#080811" }}>{i + 1}</div>
-                      </td>
-                      <td style={{ padding: "8px 8px", borderLeft: `3px solid ${leftBorder}` }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                          <span style={{ fontSize: 15 }}>{team.flag}</span>
-                          <span style={{ fontSize: 11, fontWeight: 500, color: team.pending ? "#4040a0" : "#f0f0f8" }}>{team.name}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: "8px 8px", textAlign: "center", fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 13, color: "#f5c842" }}>{team.pts}</td>
-                      {hasReal && (
-                        <td style={{ padding: "8px 8px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <span style={{ fontSize: 14 }}>{realTeam?.flag}</span>
-                            <span style={{ fontSize: 10, color: "#8080b0" }}>{realTeam?.name}</span>
-                            {qualifies && i < 3 && <span style={{ fontSize: 8, background: "rgba(6,214,160,.15)", color: "#06d6a0", borderRadius: 4, padding: "1px 4px", fontWeight: 800, letterSpacing: .5 }}>R16</span>}
-                          </div>
-                        </td>
-                      )}
-                      {hasReal && (
-                        <td style={{ padding: "8px 4px", textAlign: "center" }}>
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-                            {hit?.correctPos && (
-                              <span style={{ fontSize: 9, color: "#06d6a0", fontWeight: 800, whiteSpace: "nowrap" }}>✓ +{hit.positionPts}</span>
-                            )}
-                            {hit?.qualBonus > 0 && (
-                              <span style={{ fontSize: 9, color: "#f5c842", fontWeight: 800, whiteSpace: "nowrap" }}>⬆ +5</span>
-                            )}
-                            {!hit?.correctPos && !hit?.qualBonus && (
-                              <span style={{ fontSize: 9, color: "#3a3a60" }}>–</span>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        );
-      })}
+      {Object.keys(groups).length > 2 ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10, alignItems: "start" }}>
+          {Object.keys(groups).map(g => renderGroup(g))}
+        </div>
+      ) : (
+        Object.keys(groups).map(g => renderGroup(g))
+      )}
     </div>
   );
 }

@@ -48,26 +48,36 @@ export function MatchRow({ match, resultData, onResultChange, predictions, playe
               </div>
             </div>
             {/* Predicción del jugador activo */}
-            {mode === "predictions" && (
-              <div>
-                <div style={{ fontSize: 9, color: PLAYER_COLORS[activePlayerIdx % 6].text, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 2, textAlign: "center" }}>
-                  Pred.
+            {mode === "predictions" && (() => {
+              const pred = predictions[activePlayerIdx]?.[match.id];
+              const ph = pred?.h;
+              const pa = pred?.a;
+              const hasPred = ph !== undefined && ph !== "" && pa !== undefined && pa !== "";
+              const hasReal = rh !== "" && ra !== "";
+              const pts = hasPred && hasReal ? scoreMatch(+rh, +ra, +ph, +pa) : null;
+              const pColor = PLAYER_COLORS[activePlayerIdx % 6];
+              return (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                  <div style={{ fontSize: 9, color: pColor.text, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 2, textAlign: "center" }}>Pred.</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                    <ScoreInput value={ph ?? ""} onChange={v => onPredChange(match.id, "h", v)} color={pColor.bg} />
+                    <span style={{ color: "#2a2a40" }}>–</span>
+                    <ScoreInput value={pa ?? ""} onChange={v => onPredChange(match.id, "a", v)} color={pColor.bg} />
+                  </div>
+                  {pts !== null && (
+                    <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, fontWeight: 800,
+                      background: pts.pts > 0 ? pColor.bg : "#1a1a2a",
+                      color: pts.pts > 0 ? "#fff" : "#3a3a60",
+                      borderRadius: 5, padding: "2px 7px", letterSpacing: .5 }}>
+                      {pts.pts > 0 ? `+${pts.pts}` : "✗"}
+                      {pts.pts > 0 && <span style={{ fontSize: 9, marginLeft: 3, opacity: .8 }}>
+                        {pts.hitExact ? "Exacto" : pts.hitDiff ? "Dif." : "1X2"}
+                      </span>}
+                    </div>
+                  )}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  <ScoreInput
-                    value={predictions[activePlayerIdx]?.[match.id]?.h ?? ""}
-                    onChange={v => onPredChange(match.id, "h", v)}
-                    color={PLAYER_COLORS[activePlayerIdx % 6].bg}
-                  />
-                  <span style={{ color: "#2a2a40" }}>–</span>
-                  <ScoreInput
-                    value={predictions[activePlayerIdx]?.[match.id]?.a ?? ""}
-                    onChange={v => onPredChange(match.id, "a", v)}
-                    color={PLAYER_COLORS[activePlayerIdx % 6].bg}
-                  />
-                </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         )}
 
