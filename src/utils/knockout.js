@@ -162,7 +162,38 @@ export function buildBracket(qualifiers, knockoutResults = {}) {
   return { r32, r16, qf, sf, tercerPuesto, final };
 }
 
-// ── Bracket Euro 2024 (R16 → QF → SF → Final) ────────────────────────────────
+// ── Bracket Euro de PREDICCIONES de un jugador ───────────────────────────────
+// Idéntico a buildEuroBracket pero usando las predicciones del jugador (p.h/p.a)
+// Devuelve el mismo formato { r16, qf, sf, final } con winner calculado desde preds
+export function buildPredBracket(fixtures, playerPreds) {
+  const sort = (arr) => [...arr].sort((a, b) => a.id - b.id);
+  const r16  = sort(fixtures.filter(f => f.group === "R16"));
+  const qf   = sort(fixtures.filter(f => f.group === "QF"));
+  const sf   = sort(fixtures.filter(f => f.group === "SF"));
+  const fin  = fixtures.find(f => f.group === "FINAL") ?? null;
+
+  const enrichWithPred = (m) => {
+    const p = playerPreds?.[m.id];
+    const hasPred = p && p.h !== "" && p.h !== undefined && p.a !== "" && p.a !== undefined;
+    let winner = null;
+    if (hasPred) {
+      if (p.winner === "A") winner = m.home;
+      else if (p.winner === "B") winner = m.away;
+      else if (+p.h > +p.a) winner = m.home;
+      else if (+p.h < +p.a) winner = m.away;
+    }
+    return { ...m, predResult: hasPred ? p : null, winner };
+  };
+
+  return {
+    r16:   r16.map(enrichWithPred),
+    qf:    qf.map(enrichWithPred),
+    sf:    sf.map(enrichWithPred),
+    final: fin ? enrichWithPred(fin) : null,
+  };
+}
+
+
 // Los partidos de eliminatorias están en fixtures con group="R16"/"QF"/"SF"/"FINAL"
 // Los equipos (home/away) son strings — buscar flag en flagMap del componente
 export function buildEuroBracket(fixtures, results) {

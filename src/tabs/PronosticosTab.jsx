@@ -1,9 +1,11 @@
 import { useState, useMemo } from "react";
 import { PLAYER_COLORS } from "../constants/theme";
-import { getStandings, scoreStandings } from "../utils/scoring";
+import { getStandings, scoreStandings, scoreKnockoutMatch } from "../utils/scoring";
+import { buildEuroBracket, buildPredBracket } from "../utils/knockout";
 import { FilterChip } from "../components/FilterChip";
 import { MatchRow } from "../components/MatchRow";
 import { useTournament } from "../context/TournamentContext";
+import { ScoreInput } from "../components/ScoreInput";
 
 const POS_COLORS = ["#06d6a0", "#4cc9f0", "#f5c842", "#ff6b6b"];
 
@@ -163,7 +165,97 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
   );
 }
 
-export function PronosticosTab({ players, activePlayerIdx, setActivePlayerIdx, results, setResult, predictions, setPred, standings, qualifiedTeams }) {
+// ── Bracket de pronósticos para eliminatorias ───────────────────────────────
+function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap }) {
+  const { fixtures } = useTournament();
+  const playerPreds = predictions[activePlayerIdx] ?? {};
+  const color = PLAYER_COLORS[activePlayerIdx % 6];
+
+  // Bracket real (para mostrar resultado real al lado y calcular puntos)
+  const realBr = useMemo(() => buildEuroBracket(fixtures, results), [fixtures, results]);
+  // Bracket de predicciones del jugador
+  const predBr = useMemo(() => buildPredBracket(fixtures, playerPreds), [fixtures, playerPreds]);
+
+  const ROUNDS = [
+    { key: "r16", label: "Octavos de Final" },
+    { key: "qf",  label: "Cuartos de Final" },
+    { key: "sf",  label: "Semifinales" },
+    { key: "final", label: "🏆 Final", isFinal: true },
+  ];
+
+  const renderMatch = (m, roundKey) => {
+    if (!m) return null;
+    const pred = playerPreds[m.id] ?? {};
+    const realM = realBr?.[roundKey];
+    const realMatch = Array.isArray(realM) ? realM.find(r => r.id === m.id) : realM;
+    const sameMatchup = realMatch && realMatch.home === m.home && realMatch.away === m.away;
+    const matchScore = sameMatchup ? scoreKnockoutMatch(realMatch, pred) : null;
+    const homeFlag = flagMap[m.home] ?? "❓";
+    const awayFlag = flagMap[m.away] ?? "❓";
+    const hasHome = m.home && m.home !== "?";
+    const hasAway = m.away && m.away !== "?";
+
+    return (
+      <div key={m.id} style={{ background: "#111120", border: `1px solid ${matchScore?.pts > 0 ? color.bg : "#1a1a2a"}`, borderRadius: 10, overflow: "hidden", minWidth: 155 }}>
+        <div style={{ fontSize: 9, color: "#3a3a60", fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", padding: "4px 8px", borderBottom: "1px solid #1a1a2a" }}>
+          {realMatch?.result ? (
+            <span style={{ color: matchScore?.pts > 0 ? "#06d6a0" : "#3a3a60" }}>
+              Real: {realMatch.result.homeScore}–{realMatch.result.awayScore}
+              {realMatch.result.penaltyHome !== undefined && <span> ({realMatch.result.penaltyHome}-{realMatch.result.penaltyAway}p)</span>}
+              {matchScore?.pts > 0 && <span style={{ color: "#f5c842", marginLeft: 4 }}>+{matchScore.pts}pts</span>}
+            </span>
+          ) : "sin resultado aún"}
+        </div>
+        <div style={{ padding: "6px 8px", display: "flex", flexDirection: "column", gap: 4 }}>
+          {/* Equipo local */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 16, minWidth: 20 }}>{hasHome ? homeFlag : "❓"}</span>
+            <span style={{ fontSize: 11, flex: 1, color: hasHome ? "#d0d0e8" : "#3a3a60", fontWeight: 500 }}>{m.home || "?"}</span>
+          </div>
+          {/* Inputs marcador */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "center", padding: "2px 0" }}>
+            <ScoreInput value={pred.h ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "h", v)} color={color.bg} />
+            <span style={{ color: "#2a2a40", fontWeight: 800 }}>–</span>
+            <ScoreInput value={pred.a ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "a", v)} color={color.bg} />
+          </div>
+          {/* Equipo visitante */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 16, minWidth: 20 }}>{hasAway ? awayFlag : "❓"}</span>
+            <span style={{ fontSize: 11, flex: 1, color: hasAway ? "#d0d0e8" : "#3a3a60", fontWeight: 500 }}>{m.away || "?"}</span>
+          </div>
+          {/* Indicador ganador pronosticado */}
+          {pred.h !== undefined && pred.h !== "" && pred.a !== undefined && pred.a !== "" && (
+            <div style={{ fontSize: 9, color: color.text, fontWeight: 800, textAlign: "center", letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>
+              Clasifica: {+pred.h > +pred.a ? m.home : +pred.h < +pred.a ? m.away : "–"}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: 11, color: "#4040a0", marginBottom: 14, lineHeight: 1.6 }}>
+        Introduce el marcador que pronosticas para cada partido. Los equipos se calculan automáticamente a partir de tus clasificados de grupos.
+      </div>
+      {ROUNDS.map(({ key, label, isFinal }) => {
+        const matches = isFinal ? (predBr.final ? [predBr.final] : []) : (predBr[key] ?? []);
+        if (matches.length === 0) return null;
+        return (
+          <div key={key} style={{ marginBottom: 20 }}>
+            <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 13, letterSpacing: 3, color: isFinal ? "#f5c842" : "#4cc9f0", textTransform: "uppercase", marginBottom: 10, paddingBottom: 5, borderBottom: "1px solid #1a1a2a" }}>{label}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {matches.map(m => renderMatch(m, isFinal ? "final" : key))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function PronosticosTab({ players, activePlayerIdx, setActivePlayerIdx, results, setResult, predictions, setPred, standings, qualifiedTeams, flagMap }) {
   const { fixtures, groups } = useTournament();
   const [filterGroup, setFilterGroup] = useState("ALL");
   const [view, setView] = useState("partidos");
@@ -199,9 +291,9 @@ export function PronosticosTab({ players, activePlayerIdx, setActivePlayerIdx, r
         Pronóst. · <span style={{ color: color.text }}>{players[activePlayerIdx]?.name}</span>
       </div>
 
-      {/* Toggle vista Partidos / Clasificaciones */}
-      <div style={{ display: "flex", background: "#0f0f1c", borderRadius: 10, padding: 3, marginBottom: 14, border: "1px solid #1a1a2a", width: "fit-content" }}>
-        {[{ id: "partidos", label: "📋 Partidos" }, { id: "clasificaciones", label: "📊 Clasificaciones" }].map(v => (
+      {/* Toggle vista Partidos / Clasificaciones / Eliminatorias */}
+      <div style={{ display: "flex", background: "#0f0f1c", borderRadius: 10, padding: 3, marginBottom: 14, border: "1px solid #1a1a2a", width: "fit-content", overflowX: "auto" }}>
+        {[{ id: "partidos", label: "📋 Grupos" }, { id: "eliminatorias", label: "🥊 Elimin." }, { id: "clasificaciones", label: "📊 Clasi." }].map(v => (
           <button key={v.id} onClick={() => setView(v.id)} style={{
             padding: "7px 16px", borderRadius: 8, fontSize: 11, fontWeight: 800,
             letterSpacing: .5, cursor: "pointer", border: "none", whiteSpace: "nowrap",
@@ -234,6 +326,16 @@ export function PronosticosTab({ players, activePlayerIdx, setActivePlayerIdx, r
             />
           ))}
         </>
+      )}
+
+      {view === "eliminatorias" && (
+        <PredKnockout
+          activePlayerIdx={activePlayerIdx}
+          predictions={predictions}
+          setPred={setPred}
+          results={results}
+          flagMap={flagMap ?? {}}
+        />
       )}
 
       {view === "clasificaciones" && (

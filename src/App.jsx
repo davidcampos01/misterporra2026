@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { getStandings, scoreMatch, scoreStandings } from "./utils/scoring";
-import { getQualifiers } from "./utils/knockout";
+import { getStandings, scoreMatch, scoreStandings, scoreKnockout } from "./utils/scoring";
+import { getQualifiers, buildEuroBracket, buildPredBracket } from "./utils/knockout";
 import { css } from "./styles/global";
 import { useGameState } from "./hooks/useGameState";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -100,6 +100,16 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
     return set;
   }, [results, fixtures, groups, tournament]);
 
+  const flagMap = useMemo(() => {
+    const m = {};
+    Object.values(groups).forEach(g => g.teams.forEach(t => { m[t.name] = t.flag; }));
+    return m;
+  }, [groups]);
+
+  const realBracket = useMemo(() =>
+    tournament.id === "euro2024" ? buildEuroBracket(fixtures, results) : null
+  , [fixtures, results, tournament.id]);
+
   const standingsScores = useMemo(() => players.map((_, pidx) => {
     let total = 0;
     const detail = [];
@@ -127,6 +137,13 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
     });
     return { total, detail };
   }), [standings, predictions, players, results, qualifiedTeams, groups, fixtures]);
+
+  const koScores = useMemo(() => players.map((_, pidx) => {
+    const predBr = tournament.id === "euro2024"
+      ? buildPredBracket(fixtures, predictions[pidx] ?? {})
+      : null;
+    return scoreKnockout(realBracket, predBr);
+  }), [realBracket, predictions, players, fixtures, tournament.id]);
 
   const handleRemovePlayer = (idx) => {
     removePlayer(idx, players, predictions);
@@ -192,10 +209,10 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
           <EliminatoriaTab results={results} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} />
         )}
         {tab === "pronosticos" && (
-          <PronosticosTab players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} results={results} setResult={setResult} predictions={predictions} setPred={setPred} standings={standings} qualifiedTeams={qualifiedTeams} />
+          <PronosticosTab players={players} activePlayerIdx={activePlayerIdx} setActivePlayerIdx={setActivePlayerIdx} results={results} setResult={setResult} predictions={predictions} setPred={setPred} standings={standings} qualifiedTeams={qualifiedTeams} flagMap={flagMap} />
         )}
         {tab === "marcador" && (
-          <MarcadorTab players={players} scores={scores} standingsScores={standingsScores} results={results} predictions={predictions} activePlayerIdx={activePlayerIdx} />
+          <MarcadorTab players={players} scores={scores} standingsScores={standingsScores} koScores={koScores} results={results} predictions={predictions} activePlayerIdx={activePlayerIdx} />
         )}
       </div>
     </TournamentContext.Provider>

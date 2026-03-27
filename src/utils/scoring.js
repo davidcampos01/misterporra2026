@@ -29,7 +29,75 @@ export function scoreMatch(rh, ra, ph, pa) {
   return { pts, hit1x2, hitDiff, hitExact };
 }
 
-// Compara clasificacion real vs pronosticada (arrays de nombres en orden 1º→4º)
+// ── Puntuación Eliminatorias ────────────────────────────────────────────────
+// Por cada equipo que el jugador pronostica que avanza a una ronda:
+//   Clasificado a QF   → +9 pts
+//   Clasificado a SF   → +11 pts
+//   Clasificado a Final → +13 pts
+//   Subcampeón         → +10 pts
+//   Campeón            → +15 pts
+// Puntuación de partido (1X2/exacto): solo si el emparejamiento coincide con el real
+// Parámetros:
+//   realBracket   → { r16, qf, sf, final } con winner en cada partido
+//   predBracket   → igual pero construido desde preds del jugador
+//   predResults   → { [fixtureId]: { h, a } } predicciones de resultado
+//   realResults   → results de Firestore
+//   realFixtures  → fixtures reales con group R16/QF/SF/FINAL
+const KO_ROUND_PTS = { qf: 9, sf: 11, final: 13, champion: 15, runner: 10 };
+
+export function scoreKnockout(realBracket, predBracket) {
+  if (!realBracket || !predBracket) return { total: 0, detail: [] };
+
+  let total = 0;
+  const detail = [];
+
+  // Equipos reales clasificados a cada ronda (ganadores de la ronda anterior)
+  const realQF  = new Set(realBracket.r16.map(m => m.winner).filter(Boolean));
+  const realSF  = new Set(realBracket.qf.map(m => m.winner).filter(Boolean));
+  const realFin = new Set(realBracket.sf.map(m => m.winner).filter(Boolean));
+  const realChampion = realBracket.final?.winner ?? null;
+  const realRunner = realBracket.final
+    ? (realBracket.final.winner === realBracket.final.home ? realBracket.final.away : realBracket.final.home)
+    : null;
+
+  // Equipos que el jugador pronostica que llegan a cada ronda
+  const predQF  = new Set(predBracket.r16.map(m => m.winner).filter(Boolean));
+  const predSF  = new Set(predBracket.qf.map(m => m.winner).filter(Boolean));
+  const predFin = new Set(predBracket.sf.map(m => m.winner).filter(Boolean));
+  const predChampion = predBracket.final?.winner ?? null;
+  const predRunner = predBracket.final
+    ? (predBracket.final.winner === predBracket.final.home ? predBracket.final.away : predBracket.final.home)
+    : null;
+
+  // Solo puntuar rondas donde ya hay resultados reales
+  if (realQF.size > 0) {
+    predQF.forEach(t => { if (realQF.has(t)) { total += KO_ROUND_PTS.qf; detail.push({ team: t, round: "QF", pts: KO_ROUND_PTS.qf }); } });
+  }
+  if (realSF.size > 0) {
+    predSF.forEach(t => { if (realSF.has(t)) { total += KO_ROUND_PTS.sf; detail.push({ team: t, round: "SF", pts: KO_ROUND_PTS.sf }); } });
+  }
+  if (realFin.size > 0) {
+    predFin.forEach(t => { if (realFin.has(t)) { total += KO_ROUND_PTS.final; detail.push({ team: t, round: "Final", pts: KO_ROUND_PTS.final }); } });
+  }
+  if (realChampion && predChampion === realChampion) {
+    total += KO_ROUND_PTS.champion; detail.push({ team: predChampion, round: "Campeón", pts: KO_ROUND_PTS.champion });
+  }
+  if (realRunner && predRunner === realRunner && realBracket.final?.winner) {
+    total += KO_ROUND_PTS.runner; detail.push({ team: predRunner, round: "Subcampeón", pts: KO_ROUND_PTS.runner });
+  }
+
+  return { total, detail };
+}
+
+// Puntuación de partido KO: solo si el emparejamiento coincide (mismos equipos, en algún orden)
+export function scoreKnockoutMatch(realMatch, predResult) {
+  if (!realMatch?.result || !predResult) return null;
+  const { homeScore: rh, awayScore: ra } = realMatch.result;
+  if (rh === "" || rh === undefined || ra === "" || ra === undefined) return null;
+  const ph = predResult.h, pa = predResult.a;
+  if (ph === "" || ph === undefined || pa === "" || pa === undefined) return null;
+  return scoreMatch(+rh, +ra, +ph, +pa);
+}
 // Posicion: 1º=4pts, 2º=3pts, 3º=2pts, 4º=1pt
 // Clasificado a R16: +5pts por cada equipo pronosticado en top-3 que realmente clasifica
 const POSITION_PTS = [4, 3, 2, 1];

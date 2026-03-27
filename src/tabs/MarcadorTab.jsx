@@ -2,7 +2,7 @@ import { PLAYER_COLORS } from "../constants/theme";
 import { MatchRow } from "../components/MatchRow";
 import { useTournament } from "../context/TournamentContext";
 
-export function MarcadorTab({ players, scores, standingsScores, results, predictions, activePlayerIdx }) {
+export function MarcadorTab({ players, scores, standingsScores, koScores, results, predictions, activePlayerIdx }) {
   const { fixtures, groups } = useTournament();
   return (
     <div style={{ padding: 16 }} className="fade-in">
@@ -16,13 +16,15 @@ export function MarcadorTab({ players, scores, standingsScores, results, predict
             const color = PLAYER_COLORS[idx % 6];
             const sc = scores[idx]?.total ?? 0;
             const stSc = standingsScores?.[idx]?.total ?? 0;
-            const total = sc + stSc;
+            const koSc = koScores?.[idx]?.total ?? 0;
+            const total = sc + stSc + koSc;
             return (
               <div key={idx} style={{ textAlign: "center", minWidth: 90 }}>
                 <div style={{ fontSize: 11, color: "#5060a0", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>{pl.name}</div>
                 <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 42, fontWeight: 700, lineHeight: 1, color: color.text }}>{total}</div>
                 <div style={{ fontSize: 10, color: "#4040a0", marginTop: 2 }}>pts</div>
                 {stSc > 0 && <div style={{ fontSize: 9, color: "#f5c842", marginTop: 2 }}>+{stSc} clasi.</div>}
+                {koSc > 0 && <div style={{ fontSize: 9, color: "#4cc9f0", marginTop: 2 }}>+{koSc} elim.</div>}
               </div>
             );
           })}
@@ -30,13 +32,14 @@ export function MarcadorTab({ players, scores, standingsScores, results, predict
       </div>
 
       {/* Ranking */}
-      {[...players.map((pl, i) => ({ pl, i, sc: scores[i], stSc: standingsScores?.[i] }))]
-        .sort((a, b) => ((b.sc?.total ?? 0) + (b.stSc?.total ?? 0)) - ((a.sc?.total ?? 0) + (a.stSc?.total ?? 0)))
-        .map(({ pl, i, sc, stSc }, rank) => {
+      {[...players.map((pl, i) => ({ pl, i, sc: scores[i], stSc: standingsScores?.[i], koSc: koScores?.[i] }))]
+        .sort((a, b) => ((b.sc?.total ?? 0) + (b.stSc?.total ?? 0) + (b.koSc?.total ?? 0)) - ((a.sc?.total ?? 0) + (a.stSc?.total ?? 0) + (a.koSc?.total ?? 0)))
+        .map(({ pl, i, sc, stSc, koSc }, rank) => {
           const color = PLAYER_COLORS[i % 6];
           const matchPts = sc?.total ?? 0;
           const clasifPts = stSc?.total ?? 0;
-          const total = matchPts + clasifPts;
+          const koPts = koSc?.total ?? 0;
+          const total = matchPts + clasifPts + koPts;
           return (
             <div key={i} style={{ background: "#111120", border: `1px solid ${rank === 0 ? "#f5c842" : "#1a1a2a"}`, borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px" }}>
@@ -46,9 +49,9 @@ export function MarcadorTab({ players, scores, standingsScores, results, predict
                 <div style={{ fontWeight: 700, flex: 1 }}>{pl.name}</div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 24, fontWeight: 700, color: color.text, lineHeight: 1 }}>{total}</div>
-                  {clasifPts > 0 && (
+                  {(clasifPts > 0 || koPts > 0) && (
                     <div style={{ fontSize: 9, color: "#f5c842", letterSpacing: .5 }}>
-                      {matchPts} partidos + {clasifPts} clasi.
+                      {matchPts} partidos{clasifPts > 0 ? ` + ${clasifPts} clasi.` : ""}{koPts > 0 ? ` + ${koPts} elim.` : ""}
                     </div>
                   )}
                 </div>
@@ -59,10 +62,23 @@ export function MarcadorTab({ players, scores, standingsScores, results, predict
                   <div style={{ height: "100%", width: `${Math.min(100, (total / (817 + 132)) * 100)}%`, background: color.bg, borderRadius: 5, transition: "width .6s" }} />
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#4040a0", marginTop: 4 }}>
-                  <span>{sc?.detail?.length ?? 0} aciertos · {stSc?.detail?.length ?? 0} grupos</span>
-                  <span>{total} / {817 + 132} pts máx.</span>
+                  <span>{sc?.detail?.length ?? 0} aciertos · {stSc?.detail?.length ?? 0} grupos · {koSc?.detail?.length ?? 0} elim.</span>
+                  <span>{total} pts máx. —</span>
                 </div>
               </div>
+              {koPts > 0 && (
+                <div style={{ borderTop: "1px solid #1a1a2a", padding: "8px 14px" }}>
+                  <div style={{ fontSize: 10, color: "#4cc9f0", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Puntos eliminatorias</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {koSc.detail.map((d, j) => (
+                      <div key={j} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(76,201,240,.08)", border: "1px solid rgba(76,201,240,.2)", borderRadius: 6, padding: "3px 8px" }}>
+                        <span style={{ fontFamily: "'Oswald',monospace", fontSize: 11, color: "#4cc9f0", letterSpacing: 1 }}>{d.team} · {d.round}</span>
+                        <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 11, color: "#fff" }}>+{d.pts}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {/* Detalle clasificaciones */}
               {clasifPts > 0 && (
                 <div style={{ borderTop: "1px solid #1a1a2a", padding: "8px 14px" }}>
