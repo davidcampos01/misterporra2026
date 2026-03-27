@@ -163,34 +163,62 @@ export function buildBracket(qualifiers, knockoutResults = {}) {
 }
 
 // ── Bracket Euro de PREDICCIONES de un jugador ───────────────────────────────
-// Idéntico a buildEuroBracket pero usando las predicciones del jugador (p.h/p.a)
-// Devuelve el mismo formato { r16, qf, sf, final } con winner calculado desde preds
+// Bracket de PREDICCIONES del jugador para torneos con fase eliminatoria fija (Euro)
+// R16: equipos reales (del fixture); QF/SF/FINAL: equipos = ganadores pronosticados ronda anterior
 export function buildPredBracket(fixtures, playerPreds) {
   const sort = (arr) => [...arr].sort((a, b) => a.id - b.id);
-  const r16  = sort(fixtures.filter(f => f.group === "R16"));
-  const qf   = sort(fixtures.filter(f => f.group === "QF"));
-  const sf   = sort(fixtures.filter(f => f.group === "SF"));
-  const fin  = fixtures.find(f => f.group === "FINAL") ?? null;
+  const r16Fx = sort(fixtures.filter(f => f.group === "R16"));
+  const qfFx  = sort(fixtures.filter(f => f.group === "QF"));
+  const sfFx  = sort(fixtures.filter(f => f.group === "SF"));
+  const finFx = fixtures.find(f => f.group === "FINAL") ?? null;
 
-  const enrichWithPred = (m) => {
+  const getPredWinner = (home, away, matchId) => {
+    const p = playerPreds?.[matchId];
+    if (!p || p.h === "" || p.h === undefined || p.a === "" || p.a === undefined) return null;
+    if (+p.h > +p.a) return home;
+    if (+p.h < +p.a) return away;
+    return null; // empate en KO → sin ganador pronosticado
+  };
+
+  // R16: equipos hardcodeados del fixture (los equipos reales sorteados)
+  const r16 = r16Fx.map(m => {
+    const winner = getPredWinner(m.home, m.away, m.id);
     const p = playerPreds?.[m.id];
     const hasPred = p && p.h !== "" && p.h !== undefined && p.a !== "" && p.a !== undefined;
-    let winner = null;
-    if (hasPred) {
-      if (p.winner === "A") winner = m.home;
-      else if (p.winner === "B") winner = m.away;
-      else if (+p.h > +p.a) winner = m.home;
-      else if (+p.h < +p.a) winner = m.away;
-    }
     return { ...m, predResult: hasPred ? p : null, winner };
-  };
+  });
 
-  return {
-    r16:   r16.map(enrichWithPred),
-    qf:    qf.map(enrichWithPred),
-    sf:    sf.map(enrichWithPred),
-    final: fin ? enrichWithPred(fin) : null,
-  };
+  // QF: home = ganador pronosticado R16[i*2], away = ganador pronosticado R16[i*2+1]
+  const qf = qfFx.map((m, i) => {
+    const home = r16[i * 2]?.winner ?? null;
+    const away = r16[i * 2 + 1]?.winner ?? null;
+    const winner = home && away ? getPredWinner(home, away, m.id) : null;
+    const p = playerPreds?.[m.id];
+    const hasPred = home && away && p && p.h !== "" && p.h !== undefined && p.a !== "" && p.a !== undefined;
+    return { ...m, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner };
+  });
+
+  // SF: home = ganador pronosticado QF[i*2], away = ganador pronosticado QF[i*2+1]
+  const sf = sfFx.map((m, i) => {
+    const home = qf[i * 2]?.winner ?? null;
+    const away = qf[i * 2 + 1]?.winner ?? null;
+    const winner = home && away ? getPredWinner(home, away, m.id) : null;
+    const p = playerPreds?.[m.id];
+    const hasPred = home && away && p && p.h !== "" && p.h !== undefined && p.a !== "" && p.a !== undefined;
+    return { ...m, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner };
+  });
+
+  // FINAL: home = ganador SF[0], away = ganador SF[1]
+  const final = finFx ? (() => {
+    const home = sf[0]?.winner ?? null;
+    const away = sf[1]?.winner ?? null;
+    const winner = home && away ? getPredWinner(home, away, finFx.id) : null;
+    const p = playerPreds?.[finFx.id];
+    const hasPred = home && away && p && p.h !== "" && p.h !== undefined && p.a !== "" && p.a !== undefined;
+    return { ...finFx, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner };
+  })() : null;
+
+  return { r16, qf, sf, final };
 }
 
 

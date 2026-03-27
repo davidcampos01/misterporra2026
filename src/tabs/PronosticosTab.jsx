@@ -188,12 +188,14 @@ function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap 
     const pred = playerPreds[m.id] ?? {};
     const realM = realBr?.[roundKey];
     const realMatch = Array.isArray(realM) ? realM.find(r => r.id === m.id) : realM;
-    const sameMatchup = realMatch && realMatch.home === m.home && realMatch.away === m.away;
+    // Solo puntuar si el jugador acertó los equipos que llegan a este partido
+    const sameMatchup = realMatch?.result && realMatch.home === m.home && realMatch.away === m.away;
     const matchScore = sameMatchup ? scoreKnockoutMatch(realMatch, pred) : null;
     const homeFlag = flagMap[m.home] ?? "❓";
     const awayFlag = flagMap[m.away] ?? "❓";
     const hasHome = m.home && m.home !== "?";
     const hasAway = m.away && m.away !== "?";
+    const bothTeamsKnown = hasHome && hasAway;
 
     return (
       <div key={m.id} style={{ background: "#111120", border: `1px solid ${matchScore?.pts > 0 ? color.bg : "#1a1a2a"}`, borderRadius: 10, overflow: "hidden", minWidth: 155 }}>
@@ -206,30 +208,36 @@ function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap 
             </span>
           ) : "sin resultado aún"}
         </div>
-        <div style={{ padding: "6px 8px", display: "flex", flexDirection: "column", gap: 4 }}>
-          {/* Equipo local */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 16, minWidth: 20 }}>{hasHome ? homeFlag : "❓"}</span>
-            <span style={{ fontSize: 11, flex: 1, color: hasHome ? "#d0d0e8" : "#3a3a60", fontWeight: 500 }}>{m.home || "?"}</span>
+        {!bothTeamsKnown ? (
+          <div style={{ padding: "14px 10px", textAlign: "center", color: "#2a2a50", fontSize: 10, letterSpacing: 1 }}>
+            Clasifica el ganador<br />de la ronda anterior
           </div>
-          {/* Inputs marcador */}
-          <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "center", padding: "2px 0" }}>
-            <ScoreInput value={pred.h ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "h", v)} color={color.bg} />
-            <span style={{ color: "#2a2a40", fontWeight: 800 }}>–</span>
-            <ScoreInput value={pred.a ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "a", v)} color={color.bg} />
-          </div>
-          {/* Equipo visitante */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 16, minWidth: 20 }}>{hasAway ? awayFlag : "❓"}</span>
-            <span style={{ fontSize: 11, flex: 1, color: hasAway ? "#d0d0e8" : "#3a3a60", fontWeight: 500 }}>{m.away || "?"}</span>
-          </div>
-          {/* Indicador ganador pronosticado */}
-          {pred.h !== undefined && pred.h !== "" && pred.a !== undefined && pred.a !== "" && (
-            <div style={{ fontSize: 9, color: color.text, fontWeight: 800, textAlign: "center", letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>
-              Clasifica: {+pred.h > +pred.a ? m.home : +pred.h < +pred.a ? m.away : "–"}
+        ) : (
+          <div style={{ padding: "6px 8px", display: "flex", flexDirection: "column", gap: 4 }}>
+            {/* Equipo local */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 16, minWidth: 20 }}>{homeFlag}</span>
+              <span style={{ fontSize: 11, flex: 1, color: "#d0d0e8", fontWeight: 500 }}>{m.home}</span>
             </div>
-          )}
-        </div>
+            {/* Inputs marcador */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "center", padding: "2px 0" }}>
+              <ScoreInput value={pred.h ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "h", v)} color={color.bg} />
+              <span style={{ color: "#2a2a40", fontWeight: 800 }}>–</span>
+              <ScoreInput value={pred.a ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "a", v)} color={color.bg} />
+            </div>
+            {/* Equipo visitante */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 16, minWidth: 20 }}>{awayFlag}</span>
+              <span style={{ fontSize: 11, flex: 1, color: "#d0d0e8", fontWeight: 500 }}>{m.away}</span>
+            </div>
+            {/* Indicador ganador pronosticado */}
+            {pred.h !== undefined && pred.h !== "" && pred.a !== undefined && pred.a !== "" && (
+              <div style={{ fontSize: 9, color: color.text, fontWeight: 800, textAlign: "center", letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>
+                Clasifica: {+pred.h > +pred.a ? m.home : +pred.h < +pred.a ? m.away : "–"}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
