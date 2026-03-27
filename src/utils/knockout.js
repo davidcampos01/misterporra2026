@@ -163,56 +163,74 @@ export function buildBracket(qualifiers, knockoutResults = {}) {
 }
 
 // ── Bracket Euro de PREDICCIONES de un jugador ───────────────────────────────
-// Bracket de PREDICCIONES del jugador para torneos con fase eliminatoria fija (Euro)
-// R16: equipos reales (del fixture); QF/SF/FINAL: equipos = ganadores pronosticados ronda anterior
-export function buildPredBracket(fixtures, playerPreds) {
-  const sort = (arr) => [...arr].sort((a, b) => a.id - b.id);
-  const r16Fx = sort(fixtures.filter(f => f.group === "R16"));
-  const qfFx  = sort(fixtures.filter(f => f.group === "QF"));
-  const sfFx  = sort(fixtures.filter(f => f.group === "SF"));
+// ── Cruces R16 Euro 2024 (slots UEFA oficiales) ──────────────────────────────
+// slotA/slotB: 1X = 1º grupo X, 2X = 2º grupo X, T1-T4 = mejores 3ºs por ránking
+export const EURO_R16_SLOTS = [
+  { matchId: 1037, slotA: "1A", slotB: "2C" },  // 1A vs 2C
+  { matchId: 1038, slotA: "1B", slotB: "T4" },  // 1B vs 4º mejor 3º
+  { matchId: 1039, slotA: "2D", slotB: "1E" },  // 2D vs 1E
+  { matchId: 1040, slotA: "1F", slotB: "T3" },  // 1F vs 3er mejor 3º
+  { matchId: 1041, slotA: "2E", slotB: "T1" },  // 2E vs mejor 3º
+  { matchId: 1042, slotA: "1D", slotB: "2F" },  // 1D vs 2F
+  { matchId: 1043, slotA: "1C", slotB: "T2" },  // 1C vs 2º mejor 3º
+  { matchId: 1044, slotA: "2A", slotB: "2B" },  // 2A vs 2B
+];
+
+// Bracket de PREDICCIONES del jugador para Euro (6 grupos, R16 via slots UEFA)
+// Usa los clasificados pronosticados (1º/2º/mejores 3ºs) de fase de grupos
+export function buildPredBracket(fixtures, playerPreds, groups, numBest3rds = 4) {
+  const qualifiers = getQualifiersFromPreds(playerPreds, fixtures, groups, numBest3rds);
+
+  const resolveName = (slot) => qualifiers[slot]?.name ?? null;
+
+  const qfFx = [...fixtures.filter(f => f.group === "QF")].sort((a, b) => a.id - b.id);
+  const sfFx = [...fixtures.filter(f => f.group === "SF")].sort((a, b) => a.id - b.id);
   const finFx = fixtures.find(f => f.group === "FINAL") ?? null;
 
   const getPredWinner = (home, away, matchId) => {
+    if (!home || !away) return null;
     const p = playerPreds?.[matchId];
     if (!p || p.h === "" || p.h === undefined || p.a === "" || p.a === undefined) return null;
     if (+p.h > +p.a) return home;
     if (+p.h < +p.a) return away;
-    return null; // empate en KO → sin ganador pronosticado
+    return null; // empate en KO → sin ganador
   };
 
-  // R16: equipos hardcodeados del fixture (los equipos reales sorteados)
-  const r16 = r16Fx.map(m => {
-    const winner = getPredWinner(m.home, m.away, m.id);
-    const p = playerPreds?.[m.id];
-    const hasPred = p && p.h !== "" && p.h !== undefined && p.a !== "" && p.a !== undefined;
-    return { ...m, predResult: hasPred ? p : null, winner };
+  // R16: equipos desde clasificados predichos en grupos (no hardcodeados del fixture)
+  const r16 = EURO_R16_SLOTS.map(slot => {
+    const home = resolveName(slot.slotA);
+    const away = resolveName(slot.slotB);
+    const winner = getPredWinner(home, away, slot.matchId);
+    const p = playerPreds?.[slot.matchId];
+    const hasPred = home && away && p && p.h !== "" && p.h !== undefined && p.a !== "" && p.a !== undefined;
+    return { id: slot.matchId, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner, slotA: slot.slotA, slotB: slot.slotB };
   });
 
-  // QF: home = ganador pronosticado R16[i*2], away = ganador pronosticado R16[i*2+1]
+  // QF: ganadores R16[i*2] vs R16[i*2+1]
   const qf = qfFx.map((m, i) => {
     const home = r16[i * 2]?.winner ?? null;
     const away = r16[i * 2 + 1]?.winner ?? null;
-    const winner = home && away ? getPredWinner(home, away, m.id) : null;
+    const winner = getPredWinner(home, away, m.id);
     const p = playerPreds?.[m.id];
     const hasPred = home && away && p && p.h !== "" && p.h !== undefined && p.a !== "" && p.a !== undefined;
     return { ...m, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner };
   });
 
-  // SF: home = ganador pronosticado QF[i*2], away = ganador pronosticado QF[i*2+1]
+  // SF: ganadores QF[i*2] vs QF[i*2+1]
   const sf = sfFx.map((m, i) => {
     const home = qf[i * 2]?.winner ?? null;
     const away = qf[i * 2 + 1]?.winner ?? null;
-    const winner = home && away ? getPredWinner(home, away, m.id) : null;
+    const winner = getPredWinner(home, away, m.id);
     const p = playerPreds?.[m.id];
     const hasPred = home && away && p && p.h !== "" && p.h !== undefined && p.a !== "" && p.a !== undefined;
     return { ...m, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner };
   });
 
-  // FINAL: home = ganador SF[0], away = ganador SF[1]
+  // FINAL
   const final = finFx ? (() => {
     const home = sf[0]?.winner ?? null;
     const away = sf[1]?.winner ?? null;
-    const winner = home && away ? getPredWinner(home, away, finFx.id) : null;
+    const winner = getPredWinner(home, away, finFx.id);
     const p = playerPreds?.[finFx.id];
     const hasPred = home && away && p && p.h !== "" && p.h !== undefined && p.a !== "" && p.a !== undefined;
     return { ...finFx, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner };

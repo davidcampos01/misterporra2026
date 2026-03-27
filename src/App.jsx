@@ -140,10 +140,10 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
 
   const koScores = useMemo(() => players.map((_, pidx) => {
     const predBr = tournament.id === "euro2024"
-      ? buildPredBracket(fixtures, predictions[pidx] ?? {})
+      ? buildPredBracket(fixtures, predictions[pidx] ?? {}, groups, tournament.numBest3rds)
       : null;
     return scoreKnockout(realBracket, predBr);
-  }), [realBracket, predictions, players, fixtures, tournament.id]);
+  }), [realBracket, predictions, players, fixtures, groups, tournament]);
 
   const handleRemovePlayer = (idx) => {
     removePlayer(idx, players, predictions);

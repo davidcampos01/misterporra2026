@@ -167,14 +167,14 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
 
 // ── Bracket de pronósticos para eliminatorias ───────────────────────────────
 function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap }) {
-  const { fixtures } = useTournament();
+  const { fixtures, groups, tournament } = useTournament();
   const playerPreds = predictions[activePlayerIdx] ?? {};
   const color = PLAYER_COLORS[activePlayerIdx % 6];
 
   // Bracket real (para mostrar resultado real al lado y calcular puntos)
   const realBr = useMemo(() => buildEuroBracket(fixtures, results), [fixtures, results]);
-  // Bracket de predicciones del jugador
-  const predBr = useMemo(() => buildPredBracket(fixtures, playerPreds), [fixtures, playerPreds]);
+  // Bracket de predicciones del jugador (con clasificados calculados desde pronósticos de grupos)
+  const predBr = useMemo(() => buildPredBracket(fixtures, playerPreds, groups, tournament.numBest3rds), [fixtures, playerPreds, groups, tournament.numBest3rds]);
 
   const ROUNDS = [
     { key: "r16", label: "Octavos de Final" },
