@@ -17,7 +17,7 @@ function PlayerNameInput({ name, onSave }) {
 
 const SYNC_KEY = import.meta.env.VITE_SYNC_KEY;
 
-export function SetupTab({ players, scores, renamePlayer, removePlayer, addPlayer, tournament, onSync }) {
+export function SetupTab({ players, scores, standingsScores, koScores, renamePlayer, removePlayer, addPlayer, tournament, onSync }) {
   const [syncState, setSyncState] = useState(null); // null | "loading" | "ok" | "error"
   const [syncMsg, setSyncMsg] = useState("");
 
@@ -88,7 +88,7 @@ export function SetupTab({ players, scores, renamePlayer, removePlayer, addPlaye
               </div>
               <PlayerNameInput name={pl.name} onSave={newName => renamePlayer(idx, newName)} />
               <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 20, fontWeight: 700, color: color.text, minWidth: 50, textAlign: "right" }}>
-                {scores[idx]?.total ?? 0}
+                {(scores[idx]?.total ?? 0) + (standingsScores?.[idx]?.total ?? 0) + (koScores?.[idx]?.total ?? 0)}
               </div>
               {players.length > 2 && (
                 <button onClick={() => removePlayer(idx)} style={{ background: "rgba(255,100,100,.15)", border: "1px solid rgba(255,100,100,.3)", borderRadius: 6, color: "#ff6b6b", fontSize: 12, padding: "4px 8px", cursor: "pointer", fontWeight: 700 }}>✕</button>
