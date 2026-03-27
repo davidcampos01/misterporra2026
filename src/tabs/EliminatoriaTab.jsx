@@ -50,7 +50,10 @@ function EuroMatchCard({ match, flagMap, size = "md", label }) {
         <div style={{ textAlign: "center", fontSize: 9, color: "#2a2a50", fontWeight: 800, letterSpacing: 1 }}>VS</div>
         <TeamBox name={match.away} flag={flagMap[match.away]} isWinner={winner === match.away} isLoser={winner && winner !== match.away} size={size} />
       </div>
-      {result && <div style={{ textAlign: "center", padding: "4px 0 6px", fontFamily: "'Space Mono',monospace", fontSize: size === "lg" ? 16 : 13, fontWeight: 800, color: "#f5c842" }}>{result.homeScore} – {result.awayScore}{result.winner && <span style={{ fontSize: 9, color: "#4040a0", marginLeft: 5 }}>TP</span>}</div>}
+      {result && <div style={{ textAlign: "center", padding: "4px 0 6px", fontFamily: "'Space Mono',monospace", fontSize: size === "lg" ? 16 : 13, fontWeight: 800, color: "#f5c842" }}>
+        {result.homeScore} – {result.awayScore}
+        {result.penaltyHome !== undefined && <span style={{ fontSize: 10, color: "#a066ff", marginLeft: 5 }}>({result.penaltyHome}-{result.penaltyAway} pen)</span>}
+      </div>}
     </div>
   );
 }

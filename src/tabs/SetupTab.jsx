@@ -41,9 +41,17 @@ export function SetupTab({ players, scores, renamePlayer, removePlayer, addPlaye
           const rkey = `${fix.away}|${fix.home}`;
           const score = scoreByTeams[key] ?? scoreByTeams[rkey];
           if (!score) continue;
-          results[String(fix.id)] = scoreByTeams[key]
-            ? { homeScore: score.homeScore, awayScore: score.awayScore }
-            : { homeScore: score.awayScore, awayScore: score.homeScore };
+          const isSwapped = !scoreByTeams[key];
+          const entry = isSwapped
+            ? { homeScore: score.awayScore, awayScore: score.homeScore }
+            : { homeScore: score.homeScore, awayScore: score.awayScore };
+          // Guardar penaltis y winner si los hubo
+          if (score.penaltyHome !== undefined) {
+            entry.penaltyHome = isSwapped ? score.penaltyAway : score.penaltyHome;
+            entry.penaltyAway = isSwapped ? score.penaltyHome : score.penaltyAway;
+            entry.winner = (Number(entry.penaltyHome) > Number(entry.penaltyAway)) ? "A" : "B";
+          }
+          results[String(fix.id)] = entry;
           matched++;
         }
         await onSync(results);
