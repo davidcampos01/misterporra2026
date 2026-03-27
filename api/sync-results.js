@@ -8,7 +8,7 @@ const TEAM_MAP = {
   "Denmark": "Dinamarca", "Serbia": "Serbia", "England": "Inglaterra",
   "Poland": "Polonia", "Netherlands": "Países Bajos", "Austria": "Austria",
   "France": "Francia", "Belgium": "Bélgica", "Slovakia": "Eslovaquia",
-  "Romania": "Rumanía", "Ukraine": "Ucrania", "Turkey": "Turquía",
+  "Romania": "Rumanía", "Ukraine": "Ucrania", "Turkey": "Turquía", "Türkiye": "Turquía",
   "Georgia": "Georgia", "Portugal": "Portugal",
   "Czech Republic": "Chequia", "Czechia": "Chequia",
   // Mundial 2026
