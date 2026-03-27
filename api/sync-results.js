@@ -37,7 +37,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: `Torneo desconocido: ${tournamentId}` });
     }
 
-    const apiUrl = `https://v3.football.api-sports.io/fixtures?league=${config.leagueId}&season=${config.season}&status=FT`;
+    const apiUrl = `https://v3.football.api-sports.io/fixtures?league=${config.leagueId}&season=${config.season}&status=FT-AET-PEN`;
     const apiRes = await fetch(apiUrl, {
       headers: { "x-apisports-key": process.env.API_FOOTBALL_KEY },
     });
