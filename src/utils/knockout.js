@@ -222,6 +222,11 @@ export function buildPredBracket(fixtures, playerPreds, groups, numBest3rds = 4)
     if (!p || p.h === "" || p.h === undefined || p.a === "" || p.a === undefined) return null;
     if (+p.h > +p.a) return home;
     if (+p.h < +p.a) return away;
+    // Empate → desempate por penaltis pronosticados
+    if (p.penH !== "" && p.penH !== undefined && p.penA !== "" && p.penA !== undefined) {
+      if (+p.penH > +p.penA) return home;
+      if (+p.penH < +p.penA) return away;
+    }
     return null;
   };
 

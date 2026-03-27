@@ -188,7 +188,6 @@ function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap 
     const pred = playerPreds[m.id] ?? {};
     const realM = realBr?.[roundKey];
     const realMatch = Array.isArray(realM) ? realM.find(r => r.id === m.id) : realM;
-    // Solo puntuar si el jugador acertó los equipos que llegan a este partido
     const sameMatchup = realMatch?.result && realMatch.home === m.home && realMatch.away === m.away;
     const matchScore = sameMatchup ? scoreKnockoutMatch(realMatch, pred) : null;
     const homeFlag = flagMap[m.home] ?? "❓";
@@ -196,14 +195,30 @@ function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap 
     const hasHome = m.home && m.home !== "?";
     const hasAway = m.away && m.away !== "?";
     const bothTeamsKnown = hasHome && hasAway;
+    const predH = pred.h;
+    const predA = pred.a;
+    const hasPred = predH !== undefined && predH !== "" && predA !== undefined && predA !== "";
+    const isDraw = hasPred && String(predH) === String(predA);
+    const penH = pred.penH ?? "";
+    const penA = pred.penA ?? "";
+    // Ganador pronosticado: por resultado o por penaltis si empate
+    let predictedWinner = null;
+    if (hasPred) {
+      if (+predH > +predA) predictedWinner = m.home;
+      else if (+predH < +predA) predictedWinner = m.away;
+      else if (isDraw && penH !== "" && penA !== "") {
+        if (+penH > +penA) predictedWinner = m.home;
+        else if (+penH < +penA) predictedWinner = m.away;
+      }
+    }
 
     return (
-      <div key={m.id} style={{ background: "#111120", border: `1px solid ${matchScore?.pts > 0 ? color.bg : "#1a1a2a"}`, borderRadius: 10, overflow: "hidden", minWidth: 155 }}>
+      <div key={m.id} style={{ background: "#111120", border: `1px solid ${matchScore?.pts > 0 ? color.bg : "#1a1a2a"}`, borderRadius: 10, overflow: "hidden", minWidth: 165 }}>
         <div style={{ fontSize: 9, color: "#3a3a60", fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", padding: "4px 8px", borderBottom: "1px solid #1a1a2a" }}>
           {realMatch?.result ? (
             <span style={{ color: matchScore?.pts > 0 ? "#06d6a0" : "#3a3a60" }}>
               Real: {realMatch.result.homeScore}–{realMatch.result.awayScore}
-              {realMatch.result.penaltyHome !== undefined && <span> ({realMatch.result.penaltyHome}-{realMatch.result.penaltyAway}p)</span>}
+              {realMatch.result.penaltyHome !== undefined && realMatch.result.penaltyHome !== "" && <span> ({realMatch.result.penaltyHome}-{realMatch.result.penaltyAway}p)</span>}
               {matchScore?.pts > 0 && <span style={{ color: "#f5c842", marginLeft: 4 }}>+{matchScore.pts}pts</span>}
             </span>
           ) : "sin resultado aún"}
@@ -214,26 +229,37 @@ function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap 
           </div>
         ) : (
           <div style={{ padding: "6px 8px", display: "flex", flexDirection: "column", gap: 4 }}>
-            {/* Equipo local */}
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 16, minWidth: 20 }}>{homeFlag}</span>
               <span style={{ fontSize: 11, flex: 1, color: "#d0d0e8", fontWeight: 500 }}>{m.home}</span>
             </div>
             {/* Inputs marcador */}
-            <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "center", padding: "2px 0" }}>
-              <ScoreInput value={pred.h ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "h", v)} color={color.bg} />
-              <span style={{ color: "#2a2a40", fontWeight: 800 }}>–</span>
-              <ScoreInput value={pred.a ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "a", v)} color={color.bg} />
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "2px 0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <ScoreInput value={predH ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "h", v)} color={color.bg} />
+                <span style={{ color: "#2a2a40", fontWeight: 800 }}>–</span>
+                <ScoreInput value={predA ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "a", v)} color={color.bg} />
+              </div>
+              {/* Penaltis: solo si empate */}
+              {isDraw && (
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <input type="number" min="0" max="99" value={penH}
+                    onChange={e => setPred(activePlayerIdx, m.id, "penH", e.target.value)}
+                    placeholder="–" style={{ width: 30, height: 28, background: "#0a0a14", border: "1.5px solid #a066ff", borderRadius: 6, color: "#f0f0f8", fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, textAlign: "center", outline: "none" }} />
+                  <span style={{ fontSize: 9, color: "#a066ff", fontWeight: 800, letterSpacing: 1 }}>PEN</span>
+                  <input type="number" min="0" max="99" value={penA}
+                    onChange={e => setPred(activePlayerIdx, m.id, "penA", e.target.value)}
+                    placeholder="–" style={{ width: 30, height: 28, background: "#0a0a14", border: "1.5px solid #a066ff", borderRadius: 6, color: "#f0f0f8", fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, textAlign: "center", outline: "none" }} />
+                </div>
+              )}
             </div>
-            {/* Equipo visitante */}
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 16, minWidth: 20 }}>{awayFlag}</span>
               <span style={{ fontSize: 11, flex: 1, color: "#d0d0e8", fontWeight: 500 }}>{m.away}</span>
             </div>
-            {/* Indicador ganador pronosticado */}
-            {pred.h !== undefined && pred.h !== "" && pred.a !== undefined && pred.a !== "" && (
+            {predictedWinner && (
               <div style={{ fontSize: 9, color: color.text, fontWeight: 800, textAlign: "center", letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>
-                Clasifica: {+pred.h > +pred.a ? m.home : +pred.h < +pred.a ? m.away : "–"}
+                Clasifica: {predictedWinner}{isDraw ? " (pen)" : ""}
               </div>
             )}
           </div>
