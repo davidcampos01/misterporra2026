@@ -28,10 +28,27 @@ export function SetupTab({ players, scores, renamePlayer, removePlayer, addPlaye
       const res = await fetch(`/api/sync-results?tournament=${tournament.id}`);
       const data = await res.json();
       if (res.ok && data.ok) {
-        // Escribir resultados en Firestore desde el frontend (sin firebase-admin)
-        await onSync(data.results);
+        // Hacer el matching en el frontend usando los fixtures del torneo
+        const fixtures = tournament.fixtures;
+        const scoreByTeams = {};
+        for (const s of data.scores) {
+          scoreByTeams[`${s.home}|${s.away}`] = s;
+        }
+        const results = {};
+        let matched = 0;
+        for (const fix of fixtures) {
+          const key  = `${fix.home}|${fix.away}`;
+          const rkey = `${fix.away}|${fix.home}`;
+          const score = scoreByTeams[key] ?? scoreByTeams[rkey];
+          if (!score) continue;
+          results[String(fix.id)] = scoreByTeams[key]
+            ? { homeScore: score.homeScore, awayScore: score.awayScore }
+            : { homeScore: score.awayScore, awayScore: score.homeScore };
+          matched++;
+        }
+        await onSync(results);
         setSyncState("ok");
-        setSyncMsg(`✓ ${data.matched} partidos actualizados`);
+        setSyncMsg(`✓ ${matched} partidos actualizados`);
       } else {
         setSyncState("error");
         setSyncMsg(data.error ?? `Error ${res.status}`);

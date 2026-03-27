@@ -1,9 +1,5 @@
-// api/sync-results.js — Proxy de API-Football (sin firebase-admin)
-// Autenticación: SYNC_API_KEY (llamadas manuales) o CRON_SECRET (cron Vercel)
-// El frontend recibe los resultados y los escribe en Firestore con el SDK cliente.
-
-import { EURO2024_FIXTURES } from "../src/constants/euro2024Fixtures.js";
-import { FIXTURES } from "../src/constants/fixtures.js";
+// api/sync-results.js — Proxy puro hacia API-Football
+// Devuelve los resultados con nombres en español; el frontend hace el matching contra sus fixtures.
 
 const TEAM_MAP = {
   "Germany": "Alemania", "Scotland": "Escocia", "Hungary": "Hungría",
@@ -15,11 +11,17 @@ const TEAM_MAP = {
   "Romania": "Rumanía", "Ukraine": "Ucrania", "Turkey": "Turquía",
   "Georgia": "Georgia", "Portugal": "Portugal",
   "Czech Republic": "Chequia", "Czechia": "Chequia",
+  // Mundial 2026
+  "USA": "Estados Unidos", "United States": "Estados Unidos", "Mexico": "México",
+  "Canada": "Canadá", "Brazil": "Brasil", "Argentina": "Argentina",
+  "Morocco": "Marruecos", "South Korea": "Corea del Sur", "Japan": "Japón",
+  "Australia": "Australia", "Saudi Arabia": "Arabia Saudí",
+  "IR Iran": "Irán", "Senegal": "Senegal", "Nigeria": "Nigeria",
 };
 
-const TOURNAMENT_CONFIG = {
-  euro2024:    { leagueId: 4,  season: 2024, fixtures: EURO2024_FIXTURES },
-  mundial2026: { leagueId: 1,  season: 2026, fixtures: FIXTURES },
+const LEAGUE_CONFIG = {
+  euro2024:    { leagueId: 4,  season: 2024 },
+  mundial2026: { leagueId: 1,  season: 2026 },
 };
 
 export default async function handler(req, res) {
@@ -30,7 +32,7 @@ export default async function handler(req, res) {
     }
 
     const tournamentId = req.query.tournament ?? "euro2024";
-    const config = TOURNAMENT_CONFIG[tournamentId];
+    const config = LEAGUE_CONFIG[tournamentId];
     if (!config) {
       return res.status(400).json({ error: `Torneo desconocido: ${tournamentId}` });
     }
@@ -48,34 +50,20 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: "API-Football error", details: apiData.errors });
     }
 
-    const scoreByTeams = {};
+    // Devolver lista plana de partidos con nombres en español
+    // El frontend hace el matching contra sus fixtures por home|away
+    const scores = [];
     for (const fix of apiData.response ?? []) {
       const home = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
       const away = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
-      const homeScore = String(fix.score.fulltime.home ?? "");
-      const awayScore = String(fix.score.fulltime.away ?? "");
-      if (homeScore !== "" && awayScore !== "") {
-        scoreByTeams[`${home}|${away}`] = { homeScore, awayScore };
+      const homeScore = fix.score.fulltime.home;
+      const awayScore = fix.score.fulltime.away;
+      if (homeScore !== null && awayScore !== null) {
+        scores.push({ home, away, homeScore: String(homeScore), awayScore: String(awayScore) });
       }
     }
 
-    const results = {};
-    let matched = 0;
-    for (const fix of config.fixtures) {
-      // Solo fase de grupos tiene matchday (evitar cruzar eliminatorias vacías)
-      if (!fix.matchday) continue;
-      const key  = `${fix.home}|${fix.away}`;
-      const rkey = `${fix.away}|${fix.home}`;
-      const score = scoreByTeams[key] ?? scoreByTeams[rkey];
-      if (!score) continue;
-      results[String(fix.id)] = scoreByTeams[key]
-        ? { homeScore: score.homeScore, awayScore: score.awayScore }
-        : { homeScore: score.awayScore, awayScore: score.homeScore };
-      matched++;
-    }
-
-    // Devolvemos los resultados al frontend — él los escribe en Firestore
-    return res.json({ ok: true, matched, total: config.fixtures.filter(f => f.matchday).length, results });
+    return res.json({ ok: true, scores });
 
   } catch (err) {
     console.error("sync-results error:", err);
