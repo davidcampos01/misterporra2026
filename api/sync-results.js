@@ -56,8 +56,8 @@ export default async function handler(req, res) {
     for (const fix of apiData.response ?? []) {
       const home = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
       const away = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
-      const homeScore = fix.score.fulltime.home;
-      const awayScore = fix.score.fulltime.away;
+      const homeScore = fix.goals.home;
+      const awayScore = fix.goals.away;
       if (homeScore !== null && awayScore !== null) {
         scores.push({ home, away, homeScore: String(homeScore), awayScore: String(awayScore) });
       }
