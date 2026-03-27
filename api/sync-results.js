@@ -25,15 +25,6 @@ const TOURNAMENT_CONFIG = {
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
-    const cronAuth = process.env.CRON_SECRET &&
-      req.headers.authorization === `Bearer ${process.env.CRON_SECRET}`;
-    const manualAuth = process.env.SYNC_API_KEY &&
-      req.query.key === process.env.SYNC_API_KEY;
-
-    if (!cronAuth && !manualAuth) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
     if (!process.env.API_FOOTBALL_KEY) {
       return res.status(500).json({ error: "Falta API_FOOTBALL_KEY en las variables de entorno de Vercel" });
     }

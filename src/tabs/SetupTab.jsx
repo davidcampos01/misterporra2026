@@ -22,15 +22,10 @@ export function SetupTab({ players, scores, renamePlayer, removePlayer, addPlaye
   const [syncMsg, setSyncMsg] = useState("");
 
   async function handleSync() {
-    if (!SYNC_KEY) {
-      setSyncState("error");
-      setSyncMsg("Falta la variable VITE_SYNC_KEY en Vercel");
-      return;
-    }
     setSyncState("loading");
     setSyncMsg("");
     try {
-      const res = await fetch(`/api/sync-results?tournament=${tournament.id}&key=${SYNC_KEY}`);
+      const res = await fetch(`/api/sync-results?tournament=${tournament.id}`);
       const data = await res.json();
       if (res.ok && data.ok) {
         // Escribir resultados en Firestore desde el frontend (sin firebase-admin)
