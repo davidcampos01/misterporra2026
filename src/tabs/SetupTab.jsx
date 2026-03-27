@@ -1,6 +1,20 @@
 import { useState } from "react";
 import { PLAYER_COLORS } from "../constants/theme";
 
+function PlayerNameInput({ name, onSave }) {
+  const [local, setLocal] = useState(name);
+  // Si el nombre cambia desde Firestore, sincronizar
+  // (pero solo si el input no tiene el foco)
+  return (
+    <input
+      value={local}
+      onChange={e => setLocal(e.target.value)}
+      onBlur={() => { if (local !== name) onSave(local); }}
+      style={{ flex: 1, background: "none", border: "none", color: "#f0f0f8", fontSize: 15, fontFamily: "'DM Sans',sans-serif", fontWeight: 600, outline: "none" }}
+    />
+  );
+}
+
 const SYNC_KEY = import.meta.env.VITE_SYNC_KEY;
 
 export function SetupTab({ players, scores, renamePlayer, removePlayer, addPlayer, tournament, onSync }) {
@@ -52,11 +66,7 @@ export function SetupTab({ players, scores, renamePlayer, removePlayer, addPlaye
               <div style={{ width: 36, height: 36, borderRadius: "50%", background: color.light, border: `2px solid ${color.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
                 {idx + 1}
               </div>
-              <input
-                value={pl.name}
-                onChange={e => renamePlayer(idx, e.target.value)}
-                style={{ flex: 1, background: "none", border: "none", color: "#f0f0f8", fontSize: 15, fontFamily: "'DM Sans',sans-serif", fontWeight: 600, outline: "none" }}
-              />
+              <PlayerNameInput name={pl.name} onSave={newName => renamePlayer(idx, newName)} />
               <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 20, fontWeight: 700, color: color.text, minWidth: 50, textAlign: "right" }}>
                 {scores[idx]?.total ?? 0}
               </div>
