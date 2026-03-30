@@ -5,11 +5,11 @@
   "crons": [
     {
       "path": "/api/cron-sync?tournament=euro2024",
-      "schedule": "0 * * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/cron-sync?tournament=mundial2026",
-      "schedule": "0 * * * *"
+      "schedule": "0 8 * * *"
     }
   ]
 }
