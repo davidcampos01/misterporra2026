@@ -216,13 +216,22 @@ function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap 
     return (
       <div key={m.id} style={{ background: "#111120", border: `1px solid ${matchScore?.pts > 0 ? color.bg : "#1a1a2a"}`, borderRadius: 10, overflow: "hidden", minWidth: 165 }}>
         <div style={{ fontSize: 9, color: "#3a3a60", fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", padding: "4px 8px", borderBottom: "1px solid #1a1a2a" }}>
-          {realMatch?.result ? (
+          {realMatch ? (
             <span style={{ color: matchScore?.pts > 0 ? "#06d6a0" : "#3a3a60" }}>
-              Real: {realMatch.result.homeScore}–{realMatch.result.awayScore}
-              {realMatch.result.penaltyHome !== undefined && realMatch.result.penaltyHome !== "" && <span> ({realMatch.result.penaltyHome}-{realMatch.result.penaltyAway}p)</span>}
-              {matchScore?.pts > 0 && <span style={{ color: "#f5c842", marginLeft: 4 }}>+{matchScore.pts}pts</span>}
+              <span style={{ color: "#8080b0", marginRight: 3 }}>
+                {flagMap?.[realMatch.home] ?? ""}{realMatch.home}
+                {" vs "}
+                {realMatch.away}{flagMap?.[realMatch.away] ?? ""}
+              </span>
+              {realMatch.result ? (
+                <>
+                  {" · "}{realMatch.result.homeScore}–{realMatch.result.awayScore}
+                  {realMatch.result.penaltyHome !== undefined && realMatch.result.penaltyHome !== "" && <span> ({realMatch.result.penaltyHome}-{realMatch.result.penaltyAway}p)</span>}
+                  {matchScore?.pts > 0 && <span style={{ color: "#f5c842", marginLeft: 4 }}>+{matchScore.pts}pts</span>}
+                </>
+              ) : <span style={{ color: "#3a3a60" }}> · sin resultado</span>}
             </span>
-          ) : "sin resultado aún"}
+          ) : <span style={{ color: "#3a3a60" }}>sin resultado aún</span>}
         </div>
         {!bothTeamsKnown ? (
           <div style={{ padding: "14px 10px", textAlign: "center", color: "#2a2a50", fontSize: 10, letterSpacing: 1 }}>

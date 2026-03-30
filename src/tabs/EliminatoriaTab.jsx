@@ -1,6 +1,5 @@
-import { useMemo, useState } from "react";
-import { PLAYER_COLORS } from "../constants/theme";
-import { getQualifiers, getQualifiersFromPreds, buildBracket, buildEuroBracket } from "../utils/knockout";
+import { useMemo } from "react";
+import { getQualifiers, buildBracket, buildEuroBracket } from "../utils/knockout";
 import { useTournament } from "../context/TournamentContext";
 import { ScoreInput } from "../components/ScoreInput";
 
@@ -185,7 +184,6 @@ function WCBracket({ qualifiers }) {
 // ── Tab Eliminatorias ─────────────────────────────────────────────────────────
 export function EliminatoriaTab({ results, setResult, predictions, players, activePlayerIdx, setActivePlayerIdx }) {
   const { fixtures, groups, tournament } = useTournament();
-  const [mode, setMode] = useState("real");
   const isEuro = tournament.id === "euro2024";
 
   const flagMap = useMemo(() => {
@@ -195,33 +193,11 @@ export function EliminatoriaTab({ results, setResult, predictions, players, acti
   }, [groups]);
 
   const realQualifiers = useMemo(() => getQualifiers(results, fixtures, groups, tournament.numBest3rds), [results, fixtures, groups, tournament.numBest3rds]);
-  const predQualifiers = useMemo(() => getQualifiersFromPreds(predictions[activePlayerIdx] ?? {}, fixtures, groups, tournament.numBest3rds), [predictions, activePlayerIdx, fixtures, groups, tournament.numBest3rds]);
-  const qualifiers = mode === "real" ? realQualifiers : predQualifiers;
-  const color = PLAYER_COLORS[activePlayerIdx % 6];
 
   return (
     <div style={{ padding: 16 }} className="fade-in">
-      <div style={{ display: "flex", background: "#111120", borderRadius: 40, padding: 4, marginBottom: 14, border: "1px solid #1a1a2a", gap: 2 }}>
-        {[{ id: "real", label: "⚽ Resultados Reales" }, { id: "pred", label: "🔮 Mis Pronósticos" }].map(opt => (
-          <button key={opt.id} onClick={() => setMode(opt.id)} style={{ flex: 1, padding: "9px 14px", borderRadius: 36, fontSize: 12, fontWeight: 800, cursor: "pointer", border: "none", whiteSpace: "nowrap", background: mode === opt.id ? (opt.id === "pred" ? color.bg : "#7b2fff") : "transparent", color: mode === opt.id ? "#fff" : "#4040a0", transition: "all .2s" }}>
-            {opt.label}
-          </button>
-        ))}
-      </div>
-      {mode === "pred" && (
-        <div style={{ display: "flex", background: "#111120", borderRadius: 40, padding: 4, marginBottom: 14, border: "1px solid #1a1a2a", overflowX: "auto", gap: 2 }}>
-          {players.map((pl, idx) => {
-            const c = PLAYER_COLORS[idx % 6];
-            return (
-              <button key={idx} onClick={() => setActivePlayerIdx(idx)} style={{ flex: "0 0 auto", padding: "8px 14px", borderRadius: 36, fontSize: 12, fontWeight: 800, cursor: "pointer", border: "none", whiteSpace: "nowrap", background: activePlayerIdx === idx ? c.bg : "transparent", color: activePlayerIdx === idx ? "#fff" : "#4040a0" }}>
-                {pl.name}
-              </button>
-            );
-          })}
-        </div>
-      )}
-      <QualifiersGrid qualifiers={qualifiers} groups={groups} numBest3rds={tournament.numBest3rds} />
-      {isEuro ? <EuroBracket results={results} setResult={mode === "real" ? setResult : undefined} flagMap={flagMap} /> : <WCBracket qualifiers={qualifiers} />}
+      <QualifiersGrid qualifiers={realQualifiers} groups={groups} numBest3rds={tournament.numBest3rds} />
+      {isEuro ? <EuroBracket results={results} setResult={setResult} flagMap={flagMap} /> : <WCBracket qualifiers={realQualifiers} />}
     </div>
   );
 }

@@ -69,7 +69,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
 
   const scores = useMemo(() => players.map((_, pidx) => {
     let total = 0, detail = [];
-    fixtures.forEach(m => {
+    fixtures.filter(f => f.matchday).forEach(m => {   // solo fase de grupos
       const r = results[m.id];
       const p = predictions[pidx]?.[m.id];
       if (!r || r.homeScore === "" || r.awayScore === "" || !p || p.h === "" || p.h === undefined) return;
