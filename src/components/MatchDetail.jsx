@@ -130,6 +130,7 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
 
   const homeTeamId  = data?.homeTeamId ?? null;
   const awayTeamId  = data?.awayTeamId ?? null;
+  const events = data?.events ?? [];
 
   // Lineups ordenados: primero home, luego away
   const homeLineup = data?.lineups?.find(l => l.team?.id === homeTeamId) ?? data?.lineups?.[0];
