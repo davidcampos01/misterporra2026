@@ -11,12 +11,33 @@ const TEAM_MAP = {
   "Romania": "Rumanía", "Ukraine": "Ucrania", "Turkey": "Turquía", "Türkiye": "Turquía",
   "Georgia": "Georgia", "Portugal": "Portugal",
   "Czech Republic": "Chequia", "Czechia": "Chequia",
-  // Mundial 2026
-  "USA": "Estados Unidos", "United States": "Estados Unidos", "Mexico": "México",
+  // Mundial 2026 — equipos confirmados
+  "USA": "EE.UU.", "United States": "EE.UU.", "Mexico": "México",
   "Canada": "Canadá", "Brazil": "Brasil", "Argentina": "Argentina",
   "Morocco": "Marruecos", "South Korea": "Corea del Sur", "Japan": "Japón",
   "Australia": "Australia", "Saudi Arabia": "Arabia Saudí",
-  "IR Iran": "Irán", "Senegal": "Senegal", "Nigeria": "Nigeria",
+  "IR Iran": "Irán", "Iran": "Irán", "Senegal": "Senegal", "Nigeria": "Nigeria",
+  "South Africa": "Sudáfrica", "Ecuador": "Ecuador",
+  "Norway": "Noruega", "Algeria": "Argelia", "Jordan": "Jordania",
+  "Colombia": "Colombia", "Uzbekistan": "Uzbekistán",
+  "Cape Verde": "Cabo Verde", "Ivory Coast": "Costa de Marfil", "Cote d'Ivoire": "Costa de Marfil",
+  "New Zealand": "Nueva Zelanda", "Tunisia": "Túnez", "Egypt": "Egipto",
+  "Paraguay": "Paraguay", "Uruguay": "Uruguay", "Ghana": "Ghana",
+  "Panama": "Panamá", "Haiti": "Haití", "Curacao": "Curazao", "Qatar": "Qatar",
+  // Candidatos repechaje UEFA
+  "Greece": "Grecia", "Iceland": "Islandia", "Wales": "Gales",
+  "Bosnia and Herzegovina": "Bosnia", "Bosnia Herzegovina": "Bosnia", "Bosnia": "Bosnia",
+  "Israel": "Israel", "Finland": "Finlandia", "Montenegro": "Montenegro",
+  "Bulgaria": "Bulgaria", "North Macedonia": "Macedonia del Norte",
+  "Kosovo": "Kosovo", "Luxembourg": "Luxemburgo", "Sweden": "Suecia",
+  "Republic of Ireland": "Irlanda", "Ireland": "Irlanda",
+  "Cyprus": "Chipre", "Kazakhstan": "Kazajistán",
+  // Candidatos repechaje intercontinental
+  "Trinidad and Tobago": "Trinidad y Tobago", "Honduras": "Honduras",
+  "Jamaica": "Jamaica", "Costa Rica": "Costa Rica", "El Salvador": "El Salvador",
+  "Solomon Islands": "Islas Salomón", "Bahrain": "Baréin", "Iraq": "Irak",
+  "Indonesia": "Indonesia", "Thailand": "Tailandia",
+  "Peru": "Perú", "Bolivia": "Bolivia", "Venezuela": "Venezuela", "Chile": "Chile",
 };
 
 const LEAGUE_CONFIG = {

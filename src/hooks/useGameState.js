@@ -85,5 +85,9 @@ export function useGameState(tournamentId) {
     return write({ results: newResults });
   }, [write]);
 
-  return { gameState, fbError, setResult, setResults, setPred, addPlayer, removePlayer, renamePlayer };
+  const setTeamOverride = useCallback((placeholder, team) => {
+    write({ teamOverrides: { [placeholder]: team } });
+  }, [write]);
+
+  return { gameState, fbError, setResult, setResults, setPred, addPlayer, removePlayer, renamePlayer, setTeamOverride };
 }

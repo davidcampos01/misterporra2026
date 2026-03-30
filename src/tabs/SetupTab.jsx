@@ -17,7 +17,96 @@ function PlayerNameInput({ name, onSave }) {
 
 const SYNC_KEY = import.meta.env.VITE_SYNC_KEY;
 
-export function SetupTab({ players, scores, standingsScores, koScores, renamePlayer, removePlayer, addPlayer, tournament, onSync }) {
+// Banderas para equipos de repechaje (inglés traducido → emoji)
+const FLAG_MAP = {
+  "Grecia": "🇬🇷", "Ucrania": "🇺🇦", "Turquía": "🇹🇷", "Georgia": "🇬🇪",
+  "Islandia": "🇮🇸", "Gales": "🏴󠁧󠁢󠁷󠁬󠁳󠁿", "Bosnia": "🇧🇦", "Israel": "🇮🇱",
+  "Finlandia": "🇫🇮", "Montenegro": "🇲🇪", "Bulgaria": "🇧🇬",
+  "Macedonia del Norte": "🇲🇰", "Kosovo": "🇽🇰", "Luxemburgo": "🇱🇺",
+  "Suecia": "🇸🇪", "Irlanda": "🇮🇪", "Chipre": "🇨🇾", "Kazajistán": "🇰🇿",
+  "Eslovaquia": "🇸🇰", "Polonia": "🇵🇱", "Hungría": "🇭🇺", "Rumanía": "🇷🇴",
+  "Serbia": "🇷🇸", "Albania": "🇦🇱", "Croacia": "🇭🇷", "Chequia": "🇨🇿",
+  "Eslovenia": "🇸🇮", "Dinamarca": "🇩🇰",
+  "Trinidad y Tobago": "🇹🇹", "Honduras": "🇭🇳", "Jamaica": "🇯🇲",
+  "Costa Rica": "🇨🇷", "El Salvador": "🇸🇻", "Panamá": "🇵🇦",
+  "Islas Salomón": "🇸🇧", "Baréin": "🇧🇭", "Irak": "🇮🇶",
+  "Indonesia": "🇮🇩", "Tailandia": "🇹🇭",
+  "Perú": "🇵🇪", "Bolivia": "🇧🇴", "Venezuela": "🇻🇪", "Chile": "🇨🇱",
+};
+
+// Componente para editar equipos pendientes de repechaje
+function PendingTeamsSection({ tournament, teamOverrides, setTeamOverride }) {
+  const pendingTeams = [];
+  Object.values(tournament.groups ?? {}).forEach(g => {
+    g.teams.forEach(t => { if (t.pending) pendingTeams.push(t); });
+  });
+  if (!pendingTeams.length) return null;
+
+  return (
+    <div style={{ background: "#111120", border: "1px solid #2a1a0a", borderRadius: 14, padding: 18, marginBottom: 14 }}>
+      <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 18, letterSpacing: 2, color: "#f5a623", marginBottom: 4 }}>
+        🔄 Equipos pendientes de repechaje
+      </div>
+      <div style={{ fontSize: 11, color: "#4040a0", marginBottom: 14, lineHeight: 1.6 }}>
+        Cuando se confirmen los equipos de repechaje, actualiza su nombre y bandera aquí.
+        Todos los jugadores verán el cambio automáticamente.
+      </div>
+      {pendingTeams.map(t => {
+        const ov = teamOverrides?.[t.name] ?? {};
+        return (
+          <PendingTeamRow
+            key={t.name}
+            placeholder={t.name}
+            overrideName={ov.name ?? ""}
+            overrideFlag={ov.flag ?? ""}
+            onSave={(name, flag) => {
+              if (name.trim()) setTeamOverride(t.name, { name: name.trim(), flag: flag.trim() || "🏳️" });
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function PendingTeamRow({ placeholder, overrideName, overrideFlag, onSave }) {
+  const [name, setName] = useState(overrideName);
+  const [flag, setFlag] = useState(overrideFlag);
+  const isDirty = name !== overrideName || flag !== overrideFlag;
+  const isConfirmed = !!overrideName;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, background: "#080811", borderRadius: 10, padding: 10, border: `1px solid ${isConfirmed ? "rgba(6,214,160,.3)" : "rgba(245,166,35,.2)"}` }}>
+      <div style={{ fontSize: 11, color: "#4040a0", minWidth: 110, fontFamily: "'Space Mono',monospace", fontSize: 10 }}>
+        {placeholder}
+      </div>
+      <input
+        value={flag}
+        onChange={e => setFlag(e.target.value)}
+        placeholder="🏳️"
+        style={{ width: 44, background: "none", border: "1px solid #2a2a40", borderRadius: 6, color: "#f0f0f8", fontSize: 20, textAlign: "center", padding: "4px 2px", outline: "none", flexShrink: 0 }}
+      />
+      <input
+        value={name}
+        onChange={e => setName(e.target.value)}
+        onBlur={() => { if (isDirty && name.trim()) onSave(name, flag); }}
+        placeholder="Nombre del equipo"
+        style={{ flex: 1, background: "none", border: "1px solid #2a2a40", borderRadius: 6, color: "#f0f0f8", fontSize: 13, padding: "6px 8px", outline: "none", fontFamily: "'DM Sans',sans-serif" }}
+      />
+      {isDirty && name.trim() && (
+        <button
+          onClick={() => onSave(name, flag)}
+          style={{ flexShrink: 0, padding: "6px 10px", background: "rgba(6,214,160,.15)", border: "1px solid rgba(6,214,160,.4)", borderRadius: 6, color: "#06d6a0", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+        >✓</button>
+      )}
+      {isConfirmed && !isDirty && (
+        <span style={{ color: "#06d6a0", fontSize: 14, flexShrink: 0 }}>✓</span>
+      )}
+    </div>
+  );
+}
+
+export function SetupTab({ players, scores, standingsScores, koScores, renamePlayer, removePlayer, addPlayer, tournament, onSync, teamOverrides = {}, setTeamOverride }) {
   const [syncState, setSyncState] = useState(null); // null | "loading" | "ok" | "error"
   const [syncMsg, setSyncMsg] = useState("");
 
@@ -54,9 +143,41 @@ export function SetupTab({ players, scores, standingsScores, koScores, renamePla
           results[String(fix.id)] = entry;
           matched++;
         }
+        // Auto-detectar equipos de repechaje: para cada fixture con placeholder (*),
+        // buscamos en los resultados un partido del equipo conocido vs uno no conocido del grupo.
+        const resolvedOverrides = {};
+        const pendingFixes = fixtures.filter(f => f.home.endsWith("*") || f.away.endsWith("*"));
+        for (const fix of pendingFixes) {
+          const homeIsPending = fix.home.endsWith("*");
+          const placeholder = homeIsPending ? fix.home : fix.away;
+          const anchor      = homeIsPending ? fix.away : fix.home;
+          if (teamOverrides?.[placeholder] || resolvedOverrides[placeholder]) continue;
+          const knownOpponents = new Set(
+            fixtures
+              .filter(f2 => f2.group === fix.group && f2.id !== fix.id)
+              .flatMap(f2 => [f2.home, f2.away])
+              .filter(t => !t.endsWith("*") && t !== anchor)
+          );
+          for (const [key] of Object.entries(scoreByTeams)) {
+            const [h, a] = key.split("|");
+            let realName = null;
+            if (h === anchor && !knownOpponents.has(a)) realName = a;
+            else if (a === anchor && !knownOpponents.has(h)) realName = h;
+            if (realName) {
+              resolvedOverrides[placeholder] = { name: realName, flag: FLAG_MAP[realName] ?? "🏳️" };
+              break;
+            }
+          }
+        }
+        for (const [ph, team] of Object.entries(resolvedOverrides)) {
+          setTeamOverride?.(ph, team);
+        }
+
         await onSync(results);
+        const extraMsg = Object.keys(resolvedOverrides).length
+          ? ` · ${Object.keys(resolvedOverrides).length} equipo(s) identificado(s)` : "";
         setSyncState("ok");
-        setSyncMsg(`✓ ${matched} partidos actualizados`);
+        setSyncMsg(`✓ ${matched} partidos actualizados${extraMsg}`);
       } else {
         setSyncState("error");
         setSyncMsg(data.error ?? `Error ${res.status}`);
@@ -104,6 +225,9 @@ export function SetupTab({ players, scores, standingsScores, koScores, renamePla
           + Añadir jugador
         </button>
       </div>
+
+      {/* Equipos pendientes (solo si hay alguno con pending:true en el torneo) */}
+      <PendingTeamsSection tournament={tournament} teamOverrides={teamOverrides} setTeamOverride={setTeamOverride} />
 
       {/* Sistema de puntuación */}
       <div style={{ background: "#111120", border: "1px solid #1a1a2a", borderRadius: 14, padding: 18 }}>

@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { getStandings, scoreMatch, scoreStandings, scoreKnockout } from "./utils/scoring";
-import { getQualifiers, getQualifiersFromPreds, buildEuroBracket, buildPredBracket } from "./utils/knockout";
+import { getQualifiers, getQualifiersFromPreds, buildEuroBracket, buildPredBracket, buildWC26Bracket, buildPredBracketWC26 } from "./utils/knockout";
 import { css } from "./styles/global";
 import { useGameState } from "./hooks/useGameState";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -49,10 +49,10 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
   const [tab, setTab] = useState("grupos");
   const [activePlayerIdx, setActivePlayerIdx] = useState(0);
 
-  const fixtures = tournament.fixtures;
-  const groups = tournament.groups;
+  const baseFixtures = tournament.fixtures;
+  const baseGroups = tournament.groups;
 
-  const { gameState, fbError, setResult, setResults, setPred, addPlayer, removePlayer, renamePlayer } = useGameState(tournamentId);
+  const { gameState, fbError, setResult, setResults, setPred, addPlayer, removePlayer, renamePlayer, setTeamOverride } = useGameState(tournamentId);
 
   // Normalizar players
   const rawPlayers = gameState?.players ?? [];
@@ -61,6 +61,34 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
     : Object.keys(rawPlayers).sort((a, b) => Number(a) - Number(b)).map(k => rawPlayers[k]);
 
   const results = gameState?.results ?? {};
+
+  // Equipos pendientes resueltos (se guardan en Firestore como teamOverrides)
+  const teamOverrides = gameState?.teamOverrides ?? {};
+
+  const fixtures = useMemo(() => {
+    if (!Object.keys(teamOverrides).length) return baseFixtures;
+    return baseFixtures.map(f => ({
+      ...f,
+      home: teamOverrides[f.home]?.name ?? f.home,
+      away: teamOverrides[f.away]?.name ?? f.away,
+    }));
+  }, [baseFixtures, teamOverrides]);
+
+  const groups = useMemo(() => {
+    if (!Object.keys(teamOverrides).length) return baseGroups;
+    const out = {};
+    Object.keys(baseGroups).forEach(g => {
+      out[g] = {
+        ...baseGroups[g],
+        teams: baseGroups[g].teams.map(t =>
+          teamOverrides[t.name]
+            ? { ...t, ...teamOverrides[t.name], pending: false }
+            : t
+        ),
+      };
+    });
+    return out;
+  }, [baseGroups, teamOverrides]);
 
   const rawPreds = gameState?.predictions ?? {};
   const predictions = players.map((_, i) =>
@@ -110,17 +138,20 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
     return m;
   }, [groups]);
 
-  const realBracket = useMemo(() =>
-    tournament.id === "euro2024" ? buildEuroBracket(fixtures, results) : null
-  , [fixtures, results, tournament.id]);
+  const realBracket = useMemo(() => {
+    if (tournament.id === "euro2024") return buildEuroBracket(fixtures, results);
+    if (tournament.id === "mundial2026") {
+      const qualifiers = getQualifiers(results, fixtures, groups, tournament.numBest3rds);
+      return buildWC26Bracket(fixtures, results, qualifiers);
+    }
+    return null;
+  }, [fixtures, results, groups, tournament]);
 
   const standingsScores = useMemo(() => players.map((_, pidx) => {
     let total = 0;
     const detail = [];
     // Predicted qualified teams para este jugador (para bonus correcto en 3ºs)
-    const predQuals = tournament.id === "euro2024"
-      ? getQualifiersFromPreds(predictions[pidx] ?? {}, fixtures, groups, tournament.numBest3rds)
-      : {};
+    const predQuals = getQualifiersFromPreds(predictions[pidx] ?? {}, fixtures, groups, tournament.numBest3rds);
     const predQualSet = new Set();
     Object.entries(predQuals).forEach(([key, t]) => {
       if (/^3/.test(key)) return;
@@ -153,9 +184,12 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
   }), [standings, predictions, players, results, qualifiedTeams, groups, fixtures, tournament]);
 
   const koScores = useMemo(() => players.map((_, pidx) => {
-    const predBr = tournament.id === "euro2024"
-      ? buildPredBracket(fixtures, predictions[pidx] ?? {}, groups, tournament.numBest3rds)
-      : null;
+    let predBr = null;
+    if (tournament.id === "euro2024") {
+      predBr = buildPredBracket(fixtures, predictions[pidx] ?? {}, groups, tournament.numBest3rds);
+    } else if (tournament.id === "mundial2026") {
+      predBr = buildPredBracketWC26(fixtures, predictions[pidx] ?? {}, groups, tournament.numBest3rds);
+    }
     const sc = scoreKnockout(realBracket, predBr);
     // Tambien puntuar resultados de partidos KO cuando los equipos coinciden
     if (realBracket && predBr) {
@@ -250,7 +284,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
         </nav>
 
         {tab === "setup" && (
-          <SetupTab players={players} scores={scores} standingsScores={standingsScores} koScores={koScores} renamePlayer={(idx, name) => renamePlayer(idx, name, players)} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players, predictions)} tournament={tournament} onSync={setResults} />
+          <SetupTab players={players} scores={scores} standingsScores={standingsScores} koScores={koScores} renamePlayer={(idx, name) => renamePlayer(idx, name, players)} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players, predictions)} tournament={tournament} onSync={setResults} teamOverrides={teamOverrides} setTeamOverride={setTeamOverride} />
         )}
         {tab === "calendario" && (
           <CalendarioTab results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
