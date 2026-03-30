@@ -24,45 +24,48 @@ function eventIcon(type, detail) {
   return "·";
 }
 
-function EventRow({ ev, homeTeamName }) {
-  const isHome = ev.team?.name === homeTeamName;
+function EventRow({ ev, homeTeamId }) {
+  const isHome = ev.team?.id === homeTeamId;
   const icon = eventIcon(ev.type, ev.detail);
   const minute = ev.time?.elapsed + (ev.time?.extra ? `+${ev.time.extra}` : "");
   const playerName = ev.player?.name ?? "";
   const assistName = ev.assist?.name;
+  const isGoal = ev.type === "Goal";
+
+  const Cell = ({ side }) => {
+    const show = side === "home" ? isHome : !isHome;
+    if (!show) return <div style={{ flex: 1 }} />;
+    const nameColor = isGoal ? "#f0f0f8" : "#7070a0";
+    return (
+      <div style={{ flex: 1, textAlign: side === "home" ? "right" : "left", padding: side === "home" ? "0 8px 0 0" : "0 0 0 8px" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 4,
+          flexDirection: side === "home" ? "row-reverse" : "row" }}>
+          <span style={{ fontSize: 13, lineHeight: 1 }}>{icon}</span>
+          <div>
+            <div style={{ fontSize: 12, color: nameColor, fontWeight: isGoal ? 700 : 400 }}>
+              {playerName}
+            </div>
+            {ev.type === "subst" && assistName && (
+              <div style={{ fontSize: 10, color: "#4040a0" }}>↑ {assistName}</div>
+            )}
+            {isGoal && assistName && (
+              <div style={{ fontSize: 10, color: "#4040a0" }}>ast. {assistName}</div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 6,
-      padding: "5px 0",
-      flexDirection: isHome ? "row" : "row-reverse",
-    }}>
-      {/* Nombre jugador */}
-      <div style={{ flex: 1, textAlign: isHome ? "right" : "left" }}>
-        <span style={{ fontSize: 12, color: ev.type === "Goal" ? "#f0f0f8" : "#7070a0", fontWeight: ev.type === "Goal" ? 600 : 400 }}>
-          {playerName}
-        </span>
-        {ev.type === "subst" && assistName && (
-          <div style={{ fontSize: 10, color: "#4040a0" }}>↑ {assistName}</div>
-        )}
-        {ev.type === "Goal" && assistName && (
-          <div style={{ fontSize: 10, color: "#4040a0" }}>🅰️ {assistName}</div>
-        )}
-      </div>
-      {/* Icono */}
-      <div style={{ fontSize: 14, lineHeight: 1 }}>{icon}</div>
-      {/* Minuto */}
-      <div style={{
-        fontFamily: "'Space Mono',monospace",
-        fontSize: 11,
-        color: "#5050a0",
-        minWidth: 28,
-        textAlign: "center",
-      }}>
+    <div style={{ display: "flex", alignItems: "center", minHeight: 30, padding: "2px 0" }}>
+      <Cell side="home" />
+      <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "#5050a0",
+        minWidth: 36, textAlign: "center", flexShrink: 0, borderLeft: "1px solid #1a1a2a",
+        borderRight: "1px solid #1a1a2a", padding: "2px 0" }}>
         {minute}'
       </div>
+      <Cell side="away" />
     </div>
   );
 }
@@ -230,9 +233,6 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
                 <span style={{ fontSize: 11, color: "#6060a0", fontWeight: 700 }}>{match.home}</span>
                 <span style={{ fontSize: 11, color: "#6060a0", fontWeight: 700 }}>{match.away}</span>
               </div>
-
-              {/* Línea central */}
-              <div style={{ borderLeft: "1px solid #1a1a2a", margin: "0 50%", height: 0 }} />
 
               {events.length === 0 && (
                 <div style={{ textAlign: "center", color: "#3a3a60", fontSize: 12, padding: "16px 0" }}>

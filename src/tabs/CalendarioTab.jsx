@@ -70,7 +70,7 @@ export function CalendarioTab({ results, setResult, predictions, players, active
       {/* Selector de fechas */}
       <div style={{ display: "flex", gap: 6, marginBottom: 10, overflowX: "auto", paddingBottom: 4 }}>
         {allDates.map(d => (
-          <button key={d} onClick={() => setSelectedDate(d)} style={{
+          <button key={d} onClick={() => { setSelectedDate(d); setPhase("ALL"); setFilterGroup("ALL"); setFilterMatchday("ALL"); setFilterKO("ALL"); }} style={{
             flexShrink: 0, padding: "6px 10px", borderRadius: 8, cursor: "pointer",
             border: d === effectiveDate ? "1.5px solid #f5c842" : "1px solid #1a1a2a",
             background: d === effectiveDate ? "rgba(245,200,66,.15)" : "#111120",
