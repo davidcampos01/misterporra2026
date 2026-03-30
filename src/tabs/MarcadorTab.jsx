@@ -102,12 +102,19 @@ export function MarcadorTab({ players, scores, standingsScores, koScores, result
                 <div style={{ borderTop: "1px solid #1a1a2a", padding: "8px 14px" }}>
                   <div style={{ fontSize: 10, color: "#4cc9f0", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Puntos eliminatorias</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {koSc.detail.map((d, j) => (
-                      <div key={j} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(76,201,240,.08)", border: "1px solid rgba(76,201,240,.2)", borderRadius: 6, padding: "3px 8px" }}>
-                        <span style={{ fontFamily: "'Oswald',monospace", fontSize: 11, color: "#4cc9f0", letterSpacing: 1 }}>{d.team} · {d.round}</span>
-                        <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 11, color: "#fff" }}>+{d.pts}</span>
-                      </div>
-                    ))}
+                    {koSc.detail.map((d, j) => {
+                      const isMatch = d.team.includes(" vs ");
+                      const roundLabel = { r16: "R16", qf: "QF", sf: "SF", final: "Final" }[d.round] ?? d.round;
+                      return (
+                        <div key={j} style={{ display: "flex", alignItems: "center", gap: 4, background: isMatch ? "rgba(76,201,240,.04)" : "rgba(76,201,240,.08)", border: `1px solid ${isMatch ? "rgba(76,201,240,.12)" : "rgba(76,201,240,.2)"}`, borderRadius: 6, padding: "3px 8px" }}>
+                          <span style={{ fontFamily: "'Oswald',monospace", fontSize: 11, color: isMatch ? "#7be0f7" : "#4cc9f0", letterSpacing: 1 }}>
+                            {d.team}
+                            <span style={{ fontSize: 9, color: "#3a6080", marginLeft: 4 }}>{roundLabel}</span>
+                          </span>
+                          <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 11, color: "#fff" }}>+{d.pts}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
