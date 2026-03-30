@@ -181,6 +181,7 @@ export default async function handler(req, res) {
         home, away,
         homeScore: String(fix.goals.home),
         awayScore: String(fix.goals.away),
+        apiId: fix.fixture.id,  // ID de API-Football para poder pedir detalle
       };
       const ph = fix.score.penalty.home, pa = fix.score.penalty.away;
       if (ph !== null && pa !== null) {
@@ -213,6 +214,7 @@ export default async function handler(req, res) {
         entry.penaltyAway = isSwapped ? score.penaltyHome : score.penaltyAway;
         entry.winner = Number(entry.penaltyHome) > Number(entry.penaltyAway) ? "A" : "B";
       }
+      if (score.apiId) entry.apiId = score.apiId;
       results[String(fix.id)] = entry;
       matched++;
     }

@@ -287,7 +287,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
           <SetupTab players={players} scores={scores} standingsScores={standingsScores} koScores={koScores} renamePlayer={(idx, name) => renamePlayer(idx, name, players)} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players, predictions)} tournament={tournament} onSync={setResults} teamOverrides={teamOverrides} setTeamOverride={setTeamOverride} />
         )}
         {tab === "calendario" && (
-          <CalendarioTab results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />
+          <CalendarioTab results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} flagMap={flagMap} />
         )}
         {tab === "grupos" && (
           <GruposTab standings={standings} results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} />

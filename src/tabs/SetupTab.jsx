@@ -140,6 +140,7 @@ export function SetupTab({ players, scores, standingsScores, koScores, renamePla
             entry.penaltyAway = isSwapped ? score.penaltyHome : score.penaltyAway;
             entry.winner = (Number(entry.penaltyHome) > Number(entry.penaltyAway)) ? "A" : "B";
           }
+          if (score.apiId !== undefined) entry.apiId = score.apiId;
           results[String(fix.id)] = entry;
           matched++;
         }

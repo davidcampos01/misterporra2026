@@ -3,11 +3,12 @@ import { scoreMatch } from "../utils/scoring";
 import { ScoreInput } from "./ScoreInput";
 import { useTournament } from "../context/TournamentContext";
 
-export function MatchRow({ match, resultData, onResultChange, predictions, players, activePlayerIdx, onPredChange, mode }) {
+export function MatchRow({ match, resultData, onResultChange, predictions, players, activePlayerIdx, onPredChange, mode, onDetail }) {
   const { groups } = useTournament();
   const rh = resultData?.homeScore ?? "";
   const ra = resultData?.awayScore ?? "";
   const isPending = match.home.includes("*") || match.away.includes("*");
+  const hasResult = rh !== "" && ra !== "";
   const groupTeams = groups[match.group]?.teams ?? [];
   const homeFlag = groupTeams.find(t => t.name === match.home)?.flag || "❓";
   const awayFlag = groupTeams.find(t => t.name === match.away)?.flag || "❓";
@@ -22,7 +23,17 @@ export function MatchRow({ match, resultData, onResultChange, predictions, playe
         <span style={{ fontSize: 10, color: "#4040a0", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
           Gr.{match.group} · {match.date.slice(5).replace("-", "/")} {match.timeES}h
         </span>
-        <span style={{ fontSize: 10, color: "#4040a0" }}>{match.venue}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 10, color: "#4040a0" }}>{match.venue}</span>
+          {hasResult && onDetail && (
+            <button
+              onClick={() => onDetail(match, resultData)}
+              style={{ background: "rgba(76,201,240,.1)", border: "1px solid rgba(76,201,240,.25)", borderRadius: 5, color: "#4cc9f0", fontSize: 9, fontWeight: 700, padding: "2px 7px", cursor: "pointer", letterSpacing: 0.5, textTransform: "uppercase" }}
+            >
+              Detalle
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Teams + score */}

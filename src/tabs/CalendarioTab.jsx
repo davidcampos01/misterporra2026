@@ -2,12 +2,14 @@ import { useState, useMemo } from "react";
 import { MATCHDAY_LABEL } from "../constants/theme";
 import { FilterChip } from "../components/FilterChip";
 import { MatchRow } from "../components/MatchRow";
+import { MatchDetail } from "../components/MatchDetail";
 import { useTournament } from "../context/TournamentContext";
 
-export function CalendarioTab({ results, setResult, predictions, players, activePlayerIdx }) {
+export function CalendarioTab({ results, setResult, predictions, players, activePlayerIdx, flagMap }) {
   const { fixtures, groups } = useTournament();
   const [filterGroup, setFilterGroup] = useState("ALL");
   const [filterMatchday, setFilterMatchday] = useState("ALL");
+  const [detailMatch, setDetailMatch] = useState(null);      // { match, resultData }
 
   const filteredFixtures = useMemo(() => fixtures.filter(f => {
     if (!f.matchday) return false; // omitir rondas eliminatorias
@@ -54,11 +56,21 @@ export function CalendarioTab({ results, setResult, predictions, players, active
                 activePlayerIdx={activePlayerIdx}
                 onPredChange={() => {}}
                 mode="results"
+                onDetail={(match, rd) => setDetailMatch({ match, resultData: rd })}
               />
             ))}
           </div>
         );
       })}
+
+      {detailMatch && (
+        <MatchDetail
+          match={detailMatch.match}
+          resultData={detailMatch.resultData}
+          flagMap={flagMap}
+          onClose={() => setDetailMatch(null)}
+        />
+      )}
     </div>
   );
 }

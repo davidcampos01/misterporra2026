@@ -80,7 +80,7 @@ export default async function handler(req, res) {
       const homeScore = fix.goals.home;
       const awayScore = fix.goals.away;
       if (homeScore !== null && awayScore !== null) {
-        const entry = { home, away, homeScore: String(homeScore), awayScore: String(awayScore) };
+        const entry = { home, away, homeScore: String(homeScore), awayScore: String(awayScore), apiId: fix.fixture.id };
         // Añadir penaltis si los hubo
         const ph = fix.score.penalty.home;
         const pa = fix.score.penalty.away;
