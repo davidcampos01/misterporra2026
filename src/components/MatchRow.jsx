@@ -3,35 +3,38 @@ import { scoreMatch } from "../utils/scoring";
 import { ScoreInput } from "./ScoreInput";
 import { useTournament } from "../context/TournamentContext";
 
-export function MatchRow({ match, resultData, onResultChange, predictions, players, activePlayerIdx, onPredChange, mode, onDetail }) {
+export function MatchRow({ match, resultData, onResultChange, predictions, players, activePlayerIdx, onPredChange, mode, onDetail, phaseLabel, phaseColor, flagMap }) {
   const { groups } = useTournament();
   const rh = resultData?.homeScore ?? "";
   const ra = resultData?.awayScore ?? "";
   const isPending = match.home.includes("*") || match.away.includes("*");
   const hasResult = rh !== "" && ra !== "";
   const groupTeams = groups[match.group]?.teams ?? [];
-  const homeFlag = groupTeams.find(t => t.name === match.home)?.flag || "❓";
-  const awayFlag = groupTeams.find(t => t.name === match.away)?.flag || "❓";
+  const homeFlag = groupTeams.find(t => t.name === match.home)?.flag
+    || flagMap?.[match.home] || "🏳️";
+  const awayFlag = groupTeams.find(t => t.name === match.away)?.flag
+    || flagMap?.[match.away] || "🏳️";
+  const headerLabel = phaseLabel ?? `Gr.${match.group} · Jornada ${match.matchday ?? ""}`;
+  const headerColor = phaseColor ?? "#4040a0";
 
   return (
-    <div style={{
-      background: "#0f0f1c", border: "1px solid #1a1a2a", borderRadius: 10,
-      padding: "10px 12px", marginBottom: 8,
-    }}>
+    <div
+      onClick={hasResult && onDetail ? () => onDetail(match, resultData) : undefined}
+      style={{
+        background: "#0f0f1c", border: "1px solid #1a1a2a", borderRadius: 10,
+        padding: "10px 12px", marginBottom: 8,
+        cursor: hasResult && onDetail ? "pointer" : "default",
+      }}
+    >
       {/* Header partido */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <span style={{ fontSize: 10, color: "#4040a0", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
-          Gr.{match.group} · {match.date.slice(5).replace("-", "/")} {match.timeES}h
+        <span style={{ fontSize: 10, color: headerColor, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
+          {headerLabel} · {match.timeES}h
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 10, color: "#4040a0" }}>{match.venue}</span>
           {hasResult && onDetail && (
-            <button
-              onClick={() => onDetail(match, resultData)}
-              style={{ background: "rgba(76,201,240,.1)", border: "1px solid rgba(76,201,240,.25)", borderRadius: 5, color: "#4cc9f0", fontSize: 9, fontWeight: 700, padding: "2px 7px", cursor: "pointer", letterSpacing: 0.5, textTransform: "uppercase" }}
-            >
-              Detalle
-            </button>
+            <span style={{ fontSize: 9, color: "#2a3a50", letterSpacing: 0.5 }}>▼</span>
           )}
         </div>
       </div>

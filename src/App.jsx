@@ -46,7 +46,7 @@ function TournamentSelector({ onSelect }) {
 }
 
 function GameApp({ tournamentId, tournament, onChangeTournament }) {
-  const [tab, setTab] = useState("grupos");
+  const [tab, setTab] = useState("calendario");
   const [activePlayerIdx, setActivePlayerIdx] = useState(0);
 
   const baseFixtures = tournament.fixtures;

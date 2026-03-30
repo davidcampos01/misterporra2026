@@ -128,13 +128,12 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
   const rh = resultData?.homeScore ?? "";
   const ra = resultData?.awayScore ?? "";
 
-  const homeTeamApiName = data?.lineups?.[0]?.team?.name;
-  const events = data?.events ?? [];
+  const homeTeamId  = data?.homeTeamId ?? null;
+  const awayTeamId  = data?.awayTeamId ?? null;
 
-  // Separar eventos por equipo para saber si son home o away
-  // API-Football devuelve el nombre del equipo en inglés; usamos el orden de lineups
-  const homeLineup = data?.lineups?.[0];
-  const awayLineup = data?.lineups?.[1];
+  // Lineups ordenados: primero home, luego away
+  const homeLineup = data?.lineups?.find(l => l.team?.id === homeTeamId) ?? data?.lineups?.[0];
+  const awayLineup = data?.lineups?.find(l => l.team?.id === awayTeamId) ?? data?.lineups?.[1];
 
   // Para comparar eventos usamos el nombre del equipo local según el primer lineup
   const homeApiName = homeLineup?.team?.name;
@@ -241,7 +240,7 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
               )}
 
               {events.map((ev, i) => (
-                <EventRow key={i} ev={ev} homeTeamName={homeApiName} />
+                <EventRow key={i} ev={ev} homeTeamId={homeTeamId} />
               ))}
             </div>
 
