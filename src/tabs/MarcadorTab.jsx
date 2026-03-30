@@ -65,18 +65,22 @@ export function MarcadorTab({ players, scores, standingsScores, koScores, result
                   <span>{total} pts máx. —</span>
                 </div>
               </div>
-              {/* Puntos por grupo (suma de aciertos en partidos de cada grupo) */}
+              {/* Puntos por partidos (grupos + partidos eliminatorias) */}
               {sc?.detail?.length > 0 && (() => {
                 const byGroup = {};
+                let koMatchPts = 0;
                 sc.detail.forEach(d => {
-                  if (!d.m.group || !d.m.matchday) return; // solo fase de grupos
-                  byGroup[d.m.group] = (byGroup[d.m.group] ?? 0) + d.pts;
+                  if (d.m.group && d.m.matchday) {
+                    byGroup[d.m.group] = (byGroup[d.m.group] ?? 0) + d.pts;
+                  } else {
+                    koMatchPts += d.pts;
+                  }
                 });
                 const entries = Object.entries(byGroup).sort(([a], [b]) => a.localeCompare(b));
-                if (!entries.length) return null;
+                if (!entries.length && !koMatchPts) return null;
                 return (
                   <div style={{ borderTop: "1px solid #1a1a2a", padding: "8px 14px" }}>
-                    <div style={{ fontSize: 10, color: "#06d6a0", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Puntos por grupo</div>
+                    <div style={{ fontSize: 10, color: "#06d6a0", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Puntos partidos</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {entries.map(([g, pts]) => (
                         <div key={g} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(6,214,160,.08)", border: "1px solid rgba(6,214,160,.2)", borderRadius: 6, padding: "3px 8px" }}>
@@ -84,6 +88,12 @@ export function MarcadorTab({ players, scores, standingsScores, koScores, result
                           <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 11, color: "#fff" }}>+{pts}</span>
                         </div>
                       ))}
+                      {koMatchPts > 0 && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(76,201,240,.08)", border: "1px solid rgba(76,201,240,.2)", borderRadius: 6, padding: "3px 8px" }}>
+                          <span style={{ fontFamily: "'Oswald',monospace", fontSize: 11, color: "#4cc9f0", letterSpacing: 1 }}>Elim.</span>
+                          <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 11, color: "#fff" }}>+{koMatchPts}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -104,15 +114,33 @@ export function MarcadorTab({ players, scores, standingsScores, koScores, result
               {/* Detalle clasificaciones */}
               {clasifPts > 0 && (
                 <div style={{ borderTop: "1px solid #1a1a2a", padding: "8px 14px" }}>
-                  <div style={{ fontSize: 10, color: "#f5c842", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Puntos por clasificaciones</div>
+                  <div style={{ fontSize: 10, color: "#f5c842", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Puntos clasificaciones</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {stSc.detail.map((d, j) => (
-                      <div key={j} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(245,200,66,.08)", border: "1px solid rgba(245,200,66,.2)", borderRadius: 6, padding: "3px 8px" }}>
-                        <span style={{ fontFamily: "'Oswald',monospace", fontSize: 11, color: "#f5c842", letterSpacing: 1 }}>Gr.{d.group}</span>
-                        <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 11, color: "#fff" }}>+{d.total}</span>
-                        <span style={{ fontSize: 9, color: "#8080b0" }}>{d.hits.filter(h => h.correct).map(h => `${h.pos}º`).join(" ")}</span>
-                      </div>
-                    ))}</div>
+                    {stSc.detail.map((d, j) => {
+                      const correctPos = d.hits.filter(h => h.correctPos);
+                      const qualBonuses = d.hits.filter(h => h.qualBonus > 0);
+                      return (
+                        <div key={j} style={{ display: "flex", flexDirection: "column", gap: 2, background: "rgba(245,200,66,.08)", border: "1px solid rgba(245,200,66,.2)", borderRadius: 6, padding: "4px 8px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontFamily: "'Oswald',monospace", fontSize: 11, color: "#f5c842", letterSpacing: 1 }}>Gr.{d.group}</span>
+                            <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 11, color: "#fff" }}>+{d.total}</span>
+                          </div>
+                          <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                            {d.hits.map((h, hi) => (
+                              <span key={hi} style={{
+                                fontSize: 9, borderRadius: 3, padding: "1px 4px",
+                                background: h.correctPos ? "rgba(6,214,160,.2)" : h.qualBonus > 0 ? "rgba(245,200,66,.15)" : "transparent",
+                                color: h.correctPos ? "#06d6a0" : h.qualBonus > 0 ? "#f5c842" : "#3a3a60",
+                                fontWeight: 700,
+                              }}>
+                                {h.pos}º{h.correctPos ? `+${h.pts}` : h.qualBonus > 0 ? `+${h.qualBonus}` : ""}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
