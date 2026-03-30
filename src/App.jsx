@@ -69,7 +69,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
 
   const scores = useMemo(() => players.map((_, pidx) => {
     let total = 0, detail = [];
-    fixtures.forEach(m => {   // grupos + eliminatorias
+    fixtures.filter(f => f.matchday).forEach(m => {   // solo fase de grupos
       const r = results[m.id];
       const p = predictions[pidx]?.[m.id];
       if (!r || r.homeScore === "" || r.awayScore === "" || !p || p.h === "" || p.h === undefined) return;
@@ -156,7 +156,46 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
     const predBr = tournament.id === "euro2024"
       ? buildPredBracket(fixtures, predictions[pidx] ?? {}, groups, tournament.numBest3rds)
       : null;
-    return scoreKnockout(realBracket, predBr);
+    const sc = scoreKnockout(realBracket, predBr);
+    // Tambien puntuar resultados de partidos KO cuando los equipos coinciden
+    if (realBracket && predBr) {
+      const rounds = ["r16", "qf", "sf"];
+      rounds.forEach(round => {
+        realBracket[round]?.forEach(realM => {
+          if (!realM.result) return;
+          const predM = predBr[round]?.find(m => m.id === realM.id);
+          if (!predM || realM.home !== predM.home || realM.away !== predM.away) return;
+          const { homeScore: rh, awayScore: ra } = realM.result;
+          if (rh === "" || rh === undefined) return;
+          const pred = predictions[pidx]?.[realM.id];
+          if (!pred || pred.h === "" || pred.h === undefined) return;
+          const res = scoreMatch(+rh, +ra, +pred.h, +pred.a);
+          if (res.pts > 0) {
+            sc.total += res.pts;
+            sc.detail.push({ team: `${realM.home} vs ${realM.away}`, round, pts: res.pts });
+          }
+        });
+      });
+      // Final
+      if (realBracket.final?.result && predBr.final) {
+        const realM = realBracket.final;
+        const predM = predBr.final;
+        if (realM.home === predM.home && realM.away === predM.away) {
+          const { homeScore: rh, awayScore: ra } = realM.result;
+          if (rh !== "" && rh !== undefined) {
+            const pred = predictions[pidx]?.[realM.id];
+            if (pred && pred.h !== "" && pred.h !== undefined) {
+              const res = scoreMatch(+rh, +ra, +pred.h, +pred.a);
+              if (res.pts > 0) {
+                sc.total += res.pts;
+                sc.detail.push({ team: `${realM.home} vs ${realM.away}`, round: "final", pts: res.pts });
+              }
+            }
+          }
+        }
+      }
+    }
+    return sc;
   }), [realBracket, predictions, players, fixtures, groups, tournament]);
 
   const handleRemovePlayer = (idx) => {
