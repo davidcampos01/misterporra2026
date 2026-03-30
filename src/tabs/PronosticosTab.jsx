@@ -85,7 +85,6 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
               {["#", "Pronosticado", "PTS", hasReal ? "Real" : null].filter(Boolean).map(h => (
                 <th key={h} style={{ padding: "5px 8px", textAlign: h === "Pronosticado" || h === "Real" ? "left" : "center", color: "#4040a0", fontWeight: 800, fontSize: 9, letterSpacing: 1, textTransform: "uppercase", borderBottom: "1px solid #1a1a2a" }}>{h}</th>
               ))}
-              {hasReal && <th style={{ padding: "5px 8px", textAlign: "center", color: "#4040a0", fontWeight: 800, fontSize: 9, letterSpacing: 1, textTransform: "uppercase", borderBottom: "1px solid #1a1a2a" }}>Pts</th>}
             </tr>
           </thead>
           <tbody>
@@ -116,20 +115,16 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
                   </td>
                   <td style={{ padding: "8px 8px", textAlign: "center", fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 13, color: "#f5c842" }}>{team.pts}</td>
                   {hasReal && (
-                    <td style={{ padding: "8px 8px" }}>
+                    <td style={{ padding: "6px 8px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                         <span style={{ fontSize: 14 }}>{realTeam?.flag}</span>
-                        <span style={{ fontSize: 10, color: "#8080b0" }}>{realTeam?.name}</span>
-                        {qualifies && i < 3 && <span style={{ fontSize: 8, background: "rgba(6,214,160,.15)", color: "#06d6a0", borderRadius: 4, padding: "1px 4px", fontWeight: 800, letterSpacing: .5 }}>R16</span>}
+                        <span style={{ fontSize: 10, color: "#8080b0", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{realTeam?.name}</span>
+                        {qualifies && i < 3 && <span style={{ fontSize: 8, background: "rgba(6,214,160,.15)", color: "#06d6a0", borderRadius: 4, padding: "1px 4px", fontWeight: 800, letterSpacing: .5, flexShrink: 0 }}>R16</span>}
                       </div>
-                    </td>
-                  )}
-                  {hasReal && (
-                    <td style={{ padding: "8px 4px", textAlign: "center" }}>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+                      <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
                         {hit?.correctPos && <span style={{ fontSize: 9, color: "#06d6a0", fontWeight: 800, whiteSpace: "nowrap" }}>✓ +{hit.positionPts}</span>}
                         {hit?.qualBonus > 0 && <span style={{ fontSize: 9, color: "#f5c842", fontWeight: 800, whiteSpace: "nowrap" }}>⬆ +5</span>}
-                        {!hit?.correctPos && !hit?.qualBonus && <span style={{ fontSize: 9, color: "#3a3a60" }}>–</span>}
+                        {!hit?.correctPos && !hit?.qualBonus && <span style={{ fontSize: 9, color: "#3a3a60" }}>✗</span>}
                       </div>
                     </td>
                   )}
