@@ -112,6 +112,13 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
                       <span style={{ fontSize: 15 }}>{team.flag}</span>
                       <span style={{ fontSize: 11, fontWeight: 500, color: team.pending ? "#4040a0" : "#f0f0f8" }}>{team.name}</span>
                     </div>
+                    {hasReal && (
+                      <div style={{ display: "flex", gap: 3, marginTop: 2 }}>
+                        {hit?.correctPos && <span style={{ fontSize: 9, color: "#06d6a0", fontWeight: 800, whiteSpace: "nowrap" }}>✓ +{hit.positionPts}</span>}
+                        {hit?.qualBonus > 0 && <span style={{ fontSize: 9, color: "#f5c842", fontWeight: 800, whiteSpace: "nowrap" }}>⬆ +5</span>}
+                        {!hit?.correctPos && !hit?.qualBonus && <span style={{ fontSize: 9, color: "#3a3a60" }}>✗</span>}
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: "8px 8px", textAlign: "center", fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 13, color: "#f5c842" }}>{team.pts}</td>
                   {hasReal && (
@@ -120,11 +127,6 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
                         <span style={{ fontSize: 14 }}>{realTeam?.flag}</span>
                         <span style={{ fontSize: 10, color: "#8080b0", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{realTeam?.name}</span>
                         {qualifies && i < 3 && <span style={{ fontSize: 8, background: "rgba(6,214,160,.15)", color: "#06d6a0", borderRadius: 4, padding: "1px 4px", fontWeight: 800, letterSpacing: .5, flexShrink: 0 }}>R16</span>}
-                      </div>
-                      <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
-                        {hit?.correctPos && <span style={{ fontSize: 9, color: "#06d6a0", fontWeight: 800, whiteSpace: "nowrap" }}>✓ +{hit.positionPts}</span>}
-                        {hit?.qualBonus > 0 && <span style={{ fontSize: 9, color: "#f5c842", fontWeight: 800, whiteSpace: "nowrap" }}>⬆ +5</span>}
-                        {!hit?.correctPos && !hit?.qualBonus && <span style={{ fontSize: 9, color: "#3a3a60" }}>✗</span>}
                       </div>
                     </td>
                   )}
