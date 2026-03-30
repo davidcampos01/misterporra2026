@@ -90,7 +90,8 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
           <tbody>
             {st.map((team, i) => {
               const posColor = POS_COLORS[i];
-              const hit = sc?.hits[i];
+              // Buscar el hit correspondiente al equipo pronosticado (no por índice)
+              const hit = sc?.hits.find(h => h.predName === team.name);
               const realTeam = realSt?.[i];
               const qualifies = qualifiedTeams?.has(realTeam?.name);
               const rowBg = hasReal

@@ -12,10 +12,10 @@ export const EURO2024_GROUPS = {
     { name: "Albania",       flag: "🇦🇱" },
   ]},
   C: { teams: [
-    { name: "Eslovenia",     flag: "🇸🇮" },
-    { name: "Dinamarca",     flag: "🇩🇰" },
-    { name: "Serbia",        flag: "🇷🇸" },
     { name: "Inglaterra",    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
+    { name: "Dinamarca",     flag: "🇩🇰" },
+    { name: "Eslovenia",     flag: "🇸🇮" },
+    { name: "Serbia",        flag: "🇷🇸" },
   ]},
   D: { teams: [
     { name: "Polonia",       flag: "🇵🇱" },

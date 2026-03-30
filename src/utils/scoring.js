@@ -11,8 +11,25 @@ export function getStandings(teamsList, matches) {
     else if (h < a) { t[m.away].pts += 3; }
     else            { t[m.home].pts += 1; t[m.away].pts += 1; }
   });
-  return Object.values(t).sort(
-    (a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf
+  // Tiebreaker head-to-head entre equipos empatados
+  const h2h = (a, b) => {
+    let aPts = 0, bPts = 0, aGF = 0, bGF = 0, aGA = 0, bGA = 0;
+    matches.forEach(m => {
+      if (m.homeScore === "" || m.awayScore === "") return;
+      const isAB = (m.home === a.name && m.away === b.name);
+      const isBA = (m.home === b.name && m.away === a.name);
+      if (!isAB && !isBA) return;
+      const hg = +m.homeScore, ag = +m.awayScore;
+      const aScore = isAB ? hg : ag, bScore = isAB ? ag : hg;
+      aGF += aScore; aGA += bScore; bGF += bScore; bGA += aScore;
+      if (aScore > bScore) aPts += 3;
+      else if (aScore < bScore) bPts += 3;
+      else { aPts += 1; bPts += 1; }
+    });
+    return (bPts - aPts) || ((bGF - bGA) - (aGF - aGA)) || (bGF - aGF);
+  };
+  return Object.values(t).sort((a, b) =>
+    (b.pts - a.pts) || ((b.gf - b.ga) - (a.gf - a.ga)) || (b.gf - a.gf) || h2h(a, b)
   );
 }
 
