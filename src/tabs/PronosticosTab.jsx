@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { PLAYER_COLORS } from "../constants/theme";
 import { getStandings, scoreStandings, scoreKnockoutMatch } from "../utils/scoring";
-import { buildEuroBracket, buildPredBracket } from "../utils/knockout";
+import { buildEuroBracket, buildPredBracket, getQualifiersFromPreds } from "../utils/knockout";
 import { FilterChip } from "../components/FilterChip";
 import { MatchRow } from "../components/MatchRow";
 import { useTournament } from "../context/TournamentContext";
@@ -10,7 +10,7 @@ import { ScoreInput } from "../components/ScoreInput";
 const POS_COLORS = ["#06d6a0", "#4cc9f0", "#f5c842", "#ff6b6b"];
 
 function PredictedStandings({ activePlayerIdx, predictions, realStandings, qualifiedTeams }) {
-  const { fixtures, groups } = useTournament();
+  const { fixtures, groups, tournament } = useTournament();
   const playerPreds = predictions[activePlayerIdx] ?? {};
   const color = PLAYER_COLORS[activePlayerIdx % 6];
 
@@ -31,6 +31,18 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
     return out;
   }, [playerPreds]);
 
+  const predQualifiedSet = useMemo(() => {
+    const predQuals = tournament.id === "euro2024"
+      ? getQualifiersFromPreds(playerPreds, fixtures, groups, tournament.numBest3rds)
+      : {};
+    const s = new Set();
+    Object.entries(predQuals).forEach(([key, t]) => {
+      if (/^3/.test(key)) return;
+      if (t?.name && !t.tbd) s.add(t.name);
+    });
+    return s;
+  }, [playerPreds, fixtures, groups, tournament]);
+
   const standingsScoreByGroup = useMemo(() => {
     const out = {};
     Object.keys(groups).forEach(g => {
@@ -39,10 +51,10 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
       if (!hasReal) return;
       const realOrder = realStandings[g].map(t => t.name);
       const predOrder = groupStandings[g].map(t => t.name);
-      out[g] = scoreStandings(realOrder, predOrder, qualifiedTeams ?? new Set());
+      out[g] = scoreStandings(realOrder, predOrder, qualifiedTeams ?? new Set(), predQualifiedSet);
     });
     return out;
-  }, [groupStandings, realStandings, qualifiedTeams, groups]);
+  }, [groupStandings, realStandings, qualifiedTeams, groups, predQualifiedSet]);
 
   const totalPredicted = useMemo(
     () => fixtures.filter(f => {

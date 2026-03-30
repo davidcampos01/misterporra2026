@@ -65,16 +65,19 @@ export function MarcadorTab({ players, scores, standingsScores, koScores, result
                   <span>{total} pts máx. —</span>
                 </div>
               </div>
-              {/* Puntos por partidos de grupo */}
+              {/* Puntos por partidos (grupos + eliminatorias) */}
               {sc?.detail?.length > 0 && (() => {
                 const byGroup = {};
+                let koMatchPts = 0;
                 sc.detail.forEach(d => {
                   if (d.m.group && d.m.matchday) {
                     byGroup[d.m.group] = (byGroup[d.m.group] ?? 0) + d.pts;
+                  } else {
+                    koMatchPts += d.pts;
                   }
                 });
                 const entries = Object.entries(byGroup).sort(([a], [b]) => a.localeCompare(b));
-                if (!entries.length) return null;
+                if (!entries.length && !koMatchPts) return null;
                 return (
                   <div style={{ borderTop: "1px solid #1a1a2a", padding: "8px 14px" }}>
                     <div style={{ fontSize: 10, color: "#06d6a0", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Puntos partidos</div>
@@ -85,6 +88,12 @@ export function MarcadorTab({ players, scores, standingsScores, koScores, result
                           <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 11, color: "#fff" }}>+{pts}</span>
                         </div>
                       ))}
+                      {koMatchPts > 0 && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(76,201,240,.08)", border: "1px solid rgba(76,201,240,.2)", borderRadius: 6, padding: "3px 8px" }}>
+                          <span style={{ fontFamily: "'Oswald',monospace", fontSize: 11, color: "#4cc9f0", letterSpacing: 1 }}>Elim.</span>
+                          <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 800, fontSize: 11, color: "#fff" }}>+{koMatchPts}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

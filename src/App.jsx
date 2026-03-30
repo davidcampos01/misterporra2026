@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { getStandings, scoreMatch, scoreStandings, scoreKnockout } from "./utils/scoring";
-import { getQualifiers, buildEuroBracket, buildPredBracket } from "./utils/knockout";
+import { getQualifiers, getQualifiersFromPreds, buildEuroBracket, buildPredBracket } from "./utils/knockout";
 import { css } from "./styles/global";
 import { useGameState } from "./hooks/useGameState";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -69,7 +69,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
 
   const scores = useMemo(() => players.map((_, pidx) => {
     let total = 0, detail = [];
-    fixtures.filter(f => f.matchday).forEach(m => {   // solo fase de grupos
+    fixtures.forEach(m => {   // grupos + eliminatorias
       const r = results[m.id];
       const p = predictions[pidx]?.[m.id];
       if (!r || r.homeScore === "" || r.awayScore === "" || !p || p.h === "" || p.h === undefined) return;
@@ -117,6 +117,16 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
   const standingsScores = useMemo(() => players.map((_, pidx) => {
     let total = 0;
     const detail = [];
+    // Predicted qualified teams para este jugador (para bonus correcto en 3ºs)
+    const predQuals = tournament.id === "euro2024"
+      ? getQualifiersFromPreds(predictions[pidx] ?? {}, fixtures, groups, tournament.numBest3rds)
+      : {};
+    const predQualSet = new Set();
+    Object.entries(predQuals).forEach(([key, t]) => {
+      if (/^3/.test(key)) return;
+      if (t?.name && !t.tbd) predQualSet.add(t.name);
+    });
+
     Object.keys(groups).forEach(g => {
       const realOrder = standings[g]?.map(t => t.name) ?? [];
       const playerPreds = predictions[pidx] ?? {};
@@ -135,12 +145,12 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
         return r && r.homeScore !== "" && r.homeScore !== undefined;
       });
       if (!hasRealResults) return;
-      const sc = scoreStandings(realOrder, predOrder, qualifiedTeams);
+      const sc = scoreStandings(realOrder, predOrder, qualifiedTeams, predQualSet);
       total += sc.total;
       if (sc.total > 0) detail.push({ group: g, ...sc });
     });
     return { total, detail };
-  }), [standings, predictions, players, results, qualifiedTeams, groups, fixtures]);
+  }), [standings, predictions, players, results, qualifiedTeams, groups, fixtures, tournament]);
 
   const koScores = useMemo(() => players.map((_, pidx) => {
     const predBr = tournament.id === "euro2024"

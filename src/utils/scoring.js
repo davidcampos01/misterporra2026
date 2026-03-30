@@ -117,16 +117,19 @@ export function scoreKnockoutMatch(realMatch, predResult) {
 }
 // Posicion: 1º=4pts, 2º=3pts, 3º=2pts, 4º=1pt
 // Clasificado a R16: +5pts por cada equipo pronosticado en top-3 que realmente clasifica
+// Para 3ºs: solo bonus si el jugador también los predijo entre los mejores 3ºs (predQualifiedSet)
 const POSITION_PTS = [4, 3, 2, 1];
-export function scoreStandings(realOrder, predictedOrder, qualifiedSet = new Set()) {
+export function scoreStandings(realOrder, predictedOrder, qualifiedSet = new Set(), predQualifiedSet = null) {
   let total = 0;
   const hits = [];
   realOrder.forEach((realName, i) => {
     const predName = predictedOrder[i];
     const correctPos = predName === realName;
     const positionPts = correctPos ? POSITION_PTS[i] : 0;
-    // Bonus clasificacion: solo si pronosticado en top-3 Y ese equipo clasifica de verdad
-    const qualBonus = i < 3 && predName && qualifiedSet.has(predName) ? 5 : 0;
+    // Para 1º/2º: el equipo siempre clasifica si acaba 1º/2º (bonus si realmente clasificó)
+    // Para 3º: solo si el jugador lo predijo entre los mejores 3ºs Y realmente clasificó
+    const predWouldQualify = i < 2 ? true : (predQualifiedSet ? predQualifiedSet.has(predName) : true);
+    const qualBonus = i < 3 && predName && predWouldQualify && qualifiedSet.has(predName) ? 5 : 0;
     const pts = positionPts + qualBonus;
     total += pts;
     hits.push({ pos: i + 1, realName, predName, correctPos, positionPts, qualBonus, pts });
