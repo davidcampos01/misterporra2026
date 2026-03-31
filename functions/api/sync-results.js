@@ -115,8 +115,9 @@ export async function onRequest({ request, env }) {
       for (const fix of apfData.response) {
         const h = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
         const a = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
+        // Solo almacenamos la dirección correcta (h=local, a=visitante)
+        // El orden inverso causaría que homeTeamId y awayTeamId queden cruzados en el detalle
         idByTeams[`${h}|${a}`] = fix.fixture.id;
-        idByTeams[`${a}|${h}`] = fix.fixture.id;
       }
       for (const s of scores) {
         const id = idByTeams[`${s.home}|${s.away}`];

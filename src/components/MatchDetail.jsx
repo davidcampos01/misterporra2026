@@ -353,6 +353,25 @@ function EventSection({ title, icon, events, homeTeamId, accent }) {
   );
 }
 
+// Mapa de nombres API (inglés) → nombre en español usado en el torneo
+const API_TEAM_ES = {
+  "France":"Francia","Spain":"España","Portugal":"Portugal","Germany":"Alemania",
+  "England":"Inglaterra","Italy":"Italia","Netherlands":"Países Bajos",
+  "Croatia":"Croacia","Belgium":"Bélgica","Switzerland":"Suiza","Denmark":"Dinamarca",
+  "Hungary":"Hungría","Scotland":"Escocia","Slovakia":"Eslovaquia","Romania":"Rumanía",
+  "Ukraine":"Ucrania","Turkey":"Turquía","Türkiye":"Turquía","Georgia":"Georgia",
+  "Slovenia":"Eslovenia","Serbia":"Serbia","Albania":"Albania","Austria":"Austria",
+  "Poland":"Polonia","Czech Republic":"Chequia","Czechia":"Chequia",
+  "USA":"EE.UU.","United States":"EE.UU.","Mexico":"México","Canada":"Canadá",
+  "Brazil":"Brasil","Argentina":"Argentina","Morocco":"Marruecos",
+  "South Korea":"Corea del Sur","Japan":"Japón","Australia":"Australia",
+  "Saudi Arabia":"Arabia Saudí","IR Iran":"Irán","Iran":"Irán",
+  "Senegal":"Senegal","Nigeria":"Nigeria","Ecuador":"Ecuador",
+  "Colombia":"Colombia","Uruguay":"Uruguay","Paraguay":"Paraguay",
+  "Chile":"Chile","Peru":"Perú","Bolivia":"Bolivia","Venezuela":"Venezuela",
+  "Norway":"Noruega","Sweden":"Suecia","Greece":"Grecia",
+};
+
 // Caché en memoria por apiId — persiste durante la sesión del navegador
 // Los partidos acabados no cambian, así que no hay riesgo de datos obsoletos
 const detailCache = {};
@@ -396,8 +415,13 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
   const rh = resultData?.homeScore ?? "";
   const ra = resultData?.awayScore ?? "";
 
-  const homeTeamId = data?.homeTeamId ?? null;
-  const awayTeamId = data?.awayTeamId ?? null;
+  // Detectar si la API tiene los equipos invertidos respecto a nuestros datos
+  const apiHomeName = data?.homeTeamName;
+  const teamsSwapped = apiHomeName
+    ? (API_TEAM_ES[apiHomeName] ?? apiHomeName) === match.away
+    : false;
+  const homeTeamId = teamsSwapped ? (data?.awayTeamId ?? null) : (data?.homeTeamId ?? null);
+  const awayTeamId = teamsSwapped ? (data?.homeTeamId ?? null) : (data?.awayTeamId ?? null);
   const events = data?.events ?? [];
 
   const homeLineup = data?.lineups?.find(l => l.team?.id === homeTeamId) ?? data?.lineups?.[0];

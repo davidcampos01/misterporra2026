@@ -45,8 +45,9 @@ export async function onRequest({ request, env }) {
 
     const [fixtureData, eventsData, lineupsData] = jsons;
     const fix = fixtureData.response?.[0];
-    const homeTeamId = fix?.teams?.home?.id ?? null;
-    const awayTeamId = fix?.teams?.away?.id ?? null;
+    const homeTeamId   = fix?.teams?.home?.id   ?? null;
+    const awayTeamId   = fix?.teams?.away?.id   ?? null;
+    const homeTeamName = fix?.teams?.home?.name ?? null;
     const events = eventsData.response ?? [];
 
     const cacheHeader = events.length > 0
@@ -54,7 +55,7 @@ export async function onRequest({ request, env }) {
       : "s-maxage=30, stale-while-revalidate=60";
 
     return new Response(
-      JSON.stringify({ ok: true, homeTeamId, awayTeamId, events, lineups: lineupsData.response ?? [] }),
+      JSON.stringify({ ok: true, homeTeamId, awayTeamId, homeTeamName, events, lineups: lineupsData.response ?? [] }),
       { headers: { "Content-Type": "application/json", "Cache-Control": cacheHeader } }
     );
   } catch (err) {
