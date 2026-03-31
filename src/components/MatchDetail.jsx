@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 // Iconos de eventos
 const EVENT_ICON = {
@@ -287,6 +287,21 @@ function SinglePitch({ homeLineup, awayLineup, events }) {
   );
 }
 
+function EventSection({ title, icon, events, homeTeamId, accent }) {
+  if (!events.length) return null;
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+        <span style={{ fontSize: 14 }}>{icon}</span>
+        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.5,
+          textTransform: "uppercase", color: accent ?? "#4040a0" }}>{title}</span>
+        <div style={{ flex: 1, height: 1, background: "#1a1a2a" }} />
+      </div>
+      {events.map((ev, i) => <EventRow key={i} ev={ev} homeTeamId={homeTeamId} />)}
+    </div>
+  );
+}
+
 export function MatchDetail({ match, resultData, flagMap, onClose }) {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(false);
@@ -322,124 +337,133 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
   const awayLineup = data?.lineups?.find(l => l.team?.id === awayTeamId) ?? data?.lineups?.[1];
   const hasLineups = !!(homeLineup || awayLineup);
 
-  const sheetRef = useRef(null);
-  const touchStartY = useRef(null);
-  function onTouchStart(e) { touchStartY.current = e.touches[0].clientY; }
-  function onTouchEnd(e) {
-    if (touchStartY.current == null) return;
-    const delta = e.changedTouches[0].clientY - touchStartY.current;
-    if (delta > 80) onClose();
-    touchStartY.current = null;
-  }
+  // Agrupar eventos en secciones
+  const secGoals   = events.filter(ev => ev.type === "Goal");
+  const secVar     = events.filter(ev => ev.type === "Var");
+  const secCards   = events.filter(ev => ev.type === "Card");
+  const secSubst   = events.filter(ev => ev.type === "subst");
+  const secOthers  = events.filter(ev => !["Goal","Var","Card","subst"].includes(ev.type));
 
   return (
-    <div onClick={onClose} style={{
+    <div style={{
       position: "fixed", inset: 0, zIndex: 200,
-      background: "rgba(0,0,0,.75)", display: "flex",
-      alignItems: "flex-end", justifyContent: "center",
+      background: "#0a0a14", overflowY: "auto",
     }}>
-      <div
-        ref={sheetRef}
-        onClick={e => e.stopPropagation()}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-        style={{
-          background: "#0f0f1c", border: "1px solid #1a1a2a",
-          borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 600,
-          maxHeight: "90vh", overflowY: "auto", padding: "0 0 32px",
-        }}
-      >
-        {/* Handle */}
-        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
-          <div style={{ width: 36, height: 4, background: "#2a2a40", borderRadius: 2 }} />
+      {/* Barra superior con volver */}
+      <div style={{
+        position: "sticky", top: 0, zIndex: 10,
+        background: "#0a0a14", borderBottom: "1px solid #1a1a2a",
+        display: "flex", alignItems: "center", gap: 12, padding: "12px 16px",
+      }}>
+        <button onClick={onClose} style={{
+          background: "none", border: "none", cursor: "pointer",
+          color: "#f0f0f8", fontSize: 20, lineHeight: 1, padding: "2px 6px",
+          borderRadius: 8, display: "flex", alignItems: "center",
+        }}>‹</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 18 }}>{homeFlag}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#f0f0f8", whiteSpace: "nowrap",
+            overflow: "hidden", textOverflow: "ellipsis" }}>{match.home}</span>
+          {rh !== "" && (
+            <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 14,
+              fontWeight: 700, color: "#f5c842", flexShrink: 0 }}>{rh}–{ra}</span>
+          )}
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#f0f0f8", whiteSpace: "nowrap",
+            overflow: "hidden", textOverflow: "ellipsis" }}>{match.away}</span>
+          <span style={{ fontSize: 18 }}>{awayFlag}</span>
         </div>
-
-        {/* Header */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "12px 20px 16px", borderBottom: "1px solid #1a1a2a",
-        }}>
-          <div style={{ flex: 1, textAlign: "right" }}>
-            <div style={{ fontSize: 28 }}>{homeFlag}</div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#f0f0f8", marginTop: 4 }}>{match.home}</div>
-          </div>
-          <div style={{ textAlign: "center", padding: "0 16px", minWidth: 90 }}>
-            {rh !== "" ? (
-              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 32, fontWeight: 700, color: "#f5c842" }}>
-                {rh} – {ra}
-              </div>
-            ) : (
-              <div style={{ fontSize: 13, color: "#3a3a60" }}>vs</div>
-            )}
-            <div style={{ fontSize: 9, color: "#3030a0", letterSpacing: 1, marginTop: 4, textTransform: "uppercase" }}>
-              {match.date?.slice(5).replace("-","/")} {match.timeES}h
-            </div>
-            {resultData?.penaltyHome !== undefined && resultData.penaltyHome !== "" && (
-              <div style={{ fontSize: 11, color: "#a066ff", marginTop: 2 }}>
-                Pen. {resultData.penaltyHome}–{resultData.penaltyAway}
-              </div>
-            )}
-          </div>
-          <div style={{ flex: 1, textAlign: "left" }}>
-            <div style={{ fontSize: 28 }}>{awayFlag}</div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#f0f0f8", marginTop: 4 }}>{match.away}</div>
-          </div>
-        </div>
-
-        {/* Tabs — solo si hay datos y alineaciones */}
-        {data && hasLineups && (
-          <div style={{ display: "flex", borderBottom: "1px solid #1a1a2a" }}>
-            {[["eventos","⚽ Eventos"], ["alineaciones","📋 Alineaciones"]].map(([key, label]) => (
-              <button key={key} onClick={() => setTab(key)} style={{
-                flex: 1, padding: "10px 0", background: "none", border: "none",
-                cursor: "pointer", fontSize: 12, fontWeight: 700, letterSpacing: 0.5,
-                color: tab === key ? "#f5c842" : "#3a3a60",
-                borderBottom: tab === key ? "2px solid #f5c842" : "2px solid transparent",
-              }}>
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {!apiId && (
-          <div style={{ padding: 24, textAlign: "center", color: "#4040a0", fontSize: 13 }}>
-            Los datos de detalle estarán disponibles después de sincronizar resultados.
-          </div>
-        )}
-        {apiId && loading && (
-          <div style={{ padding: 32, textAlign: "center", color: "#4040a0", fontSize: 13 }}>Cargando detalles…</div>
-        )}
-        {error && (
-          <div style={{ margin: 16, padding: 12, background: "rgba(255,107,107,.1)", border: "1px solid rgba(255,107,107,.3)", borderRadius: 8, color: "#ff6b6b", fontSize: 12, textAlign: "center" }}>
-            ⚠️ {error}
-          </div>
-        )}
-
-        {/* Tab: Eventos */}
-        {data && tab === "eventos" && (
-          <div style={{ padding: "16px 20px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontSize: 11, color: "#6060a0", fontWeight: 700 }}>{match.home}</span>
-              <span style={{ fontSize: 11, color: "#6060a0", fontWeight: 700 }}>{match.away}</span>
-            </div>
-            {events.length === 0 ? (
-              <div style={{ textAlign: "center", color: "#3a3a60", fontSize: 12, padding: "16px 0" }}>
-                Sin eventos disponibles
-              </div>
-            ) : events.map((ev, i) => (
-              <EventRow key={i} ev={ev} homeTeamId={homeTeamId} />
-            ))}
-          </div>
-        )}
-
-        {/* Tab: Alineaciones */}
-        {data && tab === "alineaciones" && (
-          <div style={{ paddingTop: 16 }}>
-            <SinglePitch homeLineup={homeLineup} awayLineup={awayLineup} events={events} />
-          </div>
-        )}
       </div>
+
+      {/* Marcador grande */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "20px 24px 16px", borderBottom: "1px solid #1a1a2a",
+      }}>
+        <div style={{ flex: 1, textAlign: "right" }}>
+          <div style={{ fontSize: 32 }}>{homeFlag}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#f0f0f8", marginTop: 4 }}>{match.home}</div>
+        </div>
+        <div style={{ textAlign: "center", padding: "0 20px", minWidth: 100 }}>
+          {rh !== "" ? (
+            <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 38, fontWeight: 700, color: "#f5c842" }}>
+              {rh} – {ra}
+            </div>
+          ) : (
+            <div style={{ fontSize: 14, color: "#3a3a60" }}>vs</div>
+          )}
+          <div style={{ fontSize: 10, color: "#3030a0", letterSpacing: 1, marginTop: 4, textTransform: "uppercase" }}>
+            {match.date?.slice(5).replace("-","/")} · {match.timeES}h
+          </div>
+          {resultData?.penaltyHome !== undefined && resultData.penaltyHome !== "" && (
+            <div style={{ fontSize: 12, color: "#a066ff", marginTop: 4 }}>
+              Pen. {resultData.penaltyHome}–{resultData.penaltyAway}
+            </div>
+          )}
+        </div>
+        <div style={{ flex: 1, textAlign: "left" }}>
+          <div style={{ fontSize: 32 }}>{awayFlag}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#f0f0f8", marginTop: 4 }}>{match.away}</div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      {data && hasLineups && (
+        <div style={{ display: "flex", borderBottom: "1px solid #1a1a2a" }}>
+          {[["eventos","⚽ Eventos"],["alineaciones","📋 Alineaciones"]].map(([key, label]) => (
+            <button key={key} onClick={() => setTab(key)} style={{
+              flex: 1, padding: "12px 0", background: "none", border: "none",
+              cursor: "pointer", fontSize: 12, fontWeight: 700, letterSpacing: 0.5,
+              color: tab === key ? "#f5c842" : "#3a3a60",
+              borderBottom: tab === key ? "2px solid #f5c842" : "2px solid transparent",
+            }}>{label}</button>
+          ))}
+        </div>
+      )}
+
+      {!apiId && (
+        <div style={{ padding: 32, textAlign: "center", color: "#4040a0", fontSize: 13 }}>
+          Los datos de detalle estarán disponibles después de sincronizar resultados.
+        </div>
+      )}
+      {apiId && loading && (
+        <div style={{ padding: 40, textAlign: "center", color: "#4040a0", fontSize: 13 }}>Cargando detalles…</div>
+      )}
+      {error && (
+        <div style={{ margin: 16, padding: 12, background: "rgba(255,107,107,.1)", border: "1px solid rgba(255,107,107,.3)", borderRadius: 8, color: "#ff6b6b", fontSize: 12, textAlign: "center" }}>
+          ⚠️ {error}
+        </div>
+      )}
+
+      {/* Tab: Eventos */}
+      {data && (!hasLineups || tab === "eventos") && (
+        <div style={{ padding: "20px 20px 32px" }}>
+          {/* Cabecera equipos */}
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+            <span style={{ fontSize: 11, color: "#6060a0", fontWeight: 700 }}>{match.home}</span>
+            <span style={{ fontSize: 11, color: "#6060a0", fontWeight: 700 }}>{match.away}</span>
+          </div>
+          {events.length === 0 ? (
+            <div style={{ textAlign: "center", color: "#3a3a60", fontSize: 12, padding: "24px 0" }}>
+              Sin eventos disponibles
+            </div>
+          ) : (
+            <>
+              <EventSection title="Goles" icon="⚽" events={secGoals} homeTeamId={homeTeamId} accent="#f5c842" />
+              <EventSection title="VAR" icon="📺" events={secVar} homeTeamId={homeTeamId} accent="#4cc9f0" />
+              <EventSection title="Tarjetas" icon="🟨" events={secCards} homeTeamId={homeTeamId} accent="#f5a623" />
+              <EventSection title="Cambios" icon="🔄" events={secSubst} homeTeamId={homeTeamId} accent="#06d6a0" />
+              <EventSection title="Otros" icon="📋" events={secOthers} homeTeamId={homeTeamId} accent="#a066ff" />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Alineaciones */}
+      {data && hasLineups && tab === "alineaciones" && (
+        <div style={{ paddingTop: 16, paddingBottom: 32 }}>
+          <SinglePitch homeLineup={homeLineup} awayLineup={awayLineup} events={events} />
+        </div>
+      )}
     </div>
   );
 }
