@@ -22,22 +22,20 @@ function cacheGet(key) {
     return v;
   } catch { return null; }
 }
-function cacheSet(key, value, isPermanent) {
+function cacheSet(key, value, ttlMs) {
   try {
-    const ttl = isPermanent ? null : 3_600_000;
-    localStorage.setItem(key, JSON.stringify({ v: value, ts: Date.now(), ttl }));
+    localStorage.setItem(key, JSON.stringify({ v: value, ts: Date.now(), ttl: ttlMs ?? null }));
   } catch {}
 }
-async function proxyFetch(type, competition, season, matchday, lsKey, isPermanent) {
+async function proxyFetch(type, competition, season, lsKey, ttlMs) {
   const cached = cacheGet(lsKey);
   if (cached) return cached;
   const params = new URLSearchParams({ type, competition, season });
-  if (matchday != null) params.set("matchday", matchday);
   const res = await fetch(`/api/liga?${params}`);
-  if (!res.ok) throw new Error(`API error ${res.status}`);
+  if (!res.ok) throw new Error(`Error ${res.status}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error);
-  cacheSet(lsKey, data, isPermanent);
+  cacheSet(lsKey, data, ttlMs);
   return data;
 }
 
@@ -169,72 +167,47 @@ function MatchRow({ match }) {
 }
 
 export function LigaTab({ onBack }) {
-  const [leagueCode, setLeagueCode]       = useState("PD");
-  const [section, setSection]             = useState("results");
-  const [standingsData, setStandingsData] = useState(null);
-  const [loadingS, setLoadingS]           = useState(false);
-  const [errorS, setErrorS]               = useState(null);
+  const [leagueCode, setLeagueCode]           = useState("PD");
+  const [section, setSection]                 = useState("results");
+  const [standingsData, setStandingsData]     = useState(null);
+  const [loadingS, setLoadingS]               = useState(false);
+  const [errorS, setErrorS]                   = useState(null);
+  const [fixturesData, setFixturesData]       = useState(null); // { rounds: {N: [...]}, maxRound: N }
+  const [loadingF, setLoadingF]               = useState(false);
+  const [errorF, setErrorF]                   = useState(null);
   const [selectedMatchday, setSelectedMatchday] = useState(null);
-  const [maxMatchday, setMaxMatchday]     = useState(1);
-  const [matchesData, setMatchesData]     = useState(null);
-  const [loadingM, setLoadingM]           = useState(false);
-  const [errorM, setErrorM]               = useState(null);
-  const [autoSeekDone, setAutoSeekDone]   = useState(false);
+  const [maxMatchday, setMaxMatchday]         = useState(1);
   const league = LEAGUES.find(l => l.code === leagueCode);
 
-  // Fetch standings + currentMatchday al cambiar de liga
   useEffect(() => {
     if (!league) return;
-    setLoadingS(true);
-    setStandingsData(null);
-    setErrorS(null);
-    setMatchesData(null);
-    setAutoSeekDone(false);
-    // Standings: cache 1 hora (cambia tras cada jornada)
-    const key = cacheKey("standings", league.code, league.season);
-    proxyFetch("standings", league.code, league.season, null, key, false)
-      .then(d => {
-        setStandingsData(d);
-        const cm = d.season?.currentMatchday;
-        if (cm) {
-          setSelectedMatchday(cm);
-          setMaxMatchday(cm);
-        } else {
-          setSelectedMatchday(1);
-        }
-      })
+    // Reset
+    setStandingsData(null); setErrorS(null); setLoadingS(true);
+    setFixturesData(null);  setErrorF(null); setLoadingF(true);
+    setSelectedMatchday(null);
+
+    // Standings (TTL 1h)
+    const skKey = cacheKey("standings", league.code, league.season);
+    proxyFetch("standings", league.code, league.season, skKey, 3_600_000)
+      .then(d => setStandingsData(d))
       .catch(e => setErrorS(e.message))
       .finally(() => setLoadingS(false));
+
+    // Todos los partidos terminados del season (TTL 2h, 1 sola petición cubre todas las jornadas)
+    const fxKey = cacheKey("fixtures", league.code, league.season);
+    proxyFetch("fixtures", league.code, league.season, fxKey, 7_200_000)
+      .then(d => {
+        setFixturesData(d);
+        const mr = d.maxRound ?? 1;
+        setMaxMatchday(mr);
+        setSelectedMatchday(mr); // jornada más reciente con resultados
+      })
+      .catch(e => setErrorF(e.message))
+      .finally(() => setLoadingF(false));
   }, [leagueCode]);
 
-  // Fetch partidos al cambiar jornada
-  useEffect(() => {
-    if (!selectedMatchday || !league) return;
-    setLoadingM(true);
-    setMatchesData(null);
-    setErrorM(null);
-    // Jornadas anteriores a la actual: cache permanente (resultados no cambian)
-    const isPermanent = selectedMatchday < maxMatchday;
-    const key = cacheKey("matches", league.code, league.season, selectedMatchday);
-    proxyFetch("matches", league.code, league.season, selectedMatchday, key, isPermanent)
-      .then(d => {
-        setMatchesData(d);
-        // Auto-buscar la jornada más reciente con resultados (solo al primer acceso por liga)
-        if (!autoSeekDone) {
-          const hasFinished = (d.matches ?? []).some(m => m.status === "FINISHED");
-          if (!hasFinished && selectedMatchday > 1) {
-            setSelectedMatchday(p => p - 1); // relanza este effect
-          } else {
-            setAutoSeekDone(true);
-          }
-        }
-      })
-      .catch(e => setErrorM(e.message))
-      .finally(() => setLoadingM(false));
-  }, [selectedMatchday, leagueCode]);
-
   const table   = standingsData?.standings?.find(s => s.type === "TOTAL")?.table ?? [];
-  const matches = (matchesData?.matches ?? []).filter(m => m.status === "FINISHED");
+  const matches = fixturesData?.rounds?.[selectedMatchday] ?? [];
 
   return (
     <div style={{ background: "#080811", minHeight: "100vh", color: "#f0f0f8", paddingBottom: 80 }}>
@@ -313,9 +286,9 @@ export function LigaTab({ onBack }) {
           </div>
 
           <div style={{ background: "#0d0d1e", margin: 12, borderRadius: 12, border: "1px solid #1a1a2a", overflow: "hidden" }}>
-            {loadingM && <div style={{ textAlign: "center", color: "#4040a0", padding: 40, fontSize: 13 }}>Cargando partidos…</div>}
-            {errorM   && <div style={{ textAlign: "center", color: "#ef4444",  padding: 40, fontSize: 13 }}>{errorM}</div>}
-            {!loadingM && !errorM && matches.length === 0 && (
+            {loadingF && <div style={{ textAlign: "center", color: "#4040a0", padding: 40, fontSize: 13 }}>Cargando partidos…</div>}
+            {errorF   && <div style={{ textAlign: "center", color: "#ef4444",  padding: 40, fontSize: 13 }}>{errorF}</div>}
+            {!loadingF && !errorF && matches.length === 0 && (
               <div style={{ textAlign: "center", color: "#4040a0", padding: 40, fontSize: 13 }}>Sin resultados para esta jornada</div>
             )}
             {matches.map(m => <MatchRow key={m.id} match={m} />)}
