@@ -17,23 +17,31 @@ export default async function handler(req, res) {
   const base = `https://v3.football.api-sports.io`;
 
   try {
-    // Dos llamadas en paralelo: eventos + alineaciones
-    const [eventsRes, lineupsRes] = await Promise.all([
+    // Tres llamadas en paralelo: fixture base (para home/away IDs), eventos y alineaciones
+    const [fixtureRes, eventsRes, lineupsRes] = await Promise.all([
+      fetch(`${base}/fixtures?id=${fixtureApiId}`, { headers }),
       fetch(`${base}/fixtures/events?fixture=${fixtureApiId}`, { headers }),
       fetch(`${base}/fixtures/lineups?fixture=${fixtureApiId}`, { headers }),
     ]);
 
-    if (!eventsRes.ok || !lineupsRes.ok) {
+    if (!fixtureRes.ok || !eventsRes.ok || !lineupsRes.ok) {
       return res.status(502).json({ error: "Error al obtener datos de API-Football" });
     }
 
-    const [eventsData, lineupsData] = await Promise.all([
+    const [fixtureData, eventsData, lineupsData] = await Promise.all([
+      fixtureRes.json(),
       eventsRes.json(),
       lineupsRes.json(),
     ]);
 
+    const fix = fixtureData.response?.[0];
+    const homeTeamId = fix?.teams?.home?.id ?? null;
+    const awayTeamId = fix?.teams?.away?.id ?? null;
+
     return res.json({
       ok: true,
+      homeTeamId,
+      awayTeamId,
       events: eventsData.response ?? [],
       lineups: lineupsData.response ?? [],
     });

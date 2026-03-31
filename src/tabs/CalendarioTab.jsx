@@ -1,5 +1,4 @@
 import { useState, useMemo } from "react";
-import { FilterChip } from "../components/FilterChip";
 import { MatchRow } from "../components/MatchRow";
 import { MatchDetail } from "../components/MatchDetail";
 import { useTournament } from "../context/TournamentContext";
@@ -20,12 +19,8 @@ function formatDateES(dateStr) {
 }
 
 export function CalendarioTab({ results, setResult, predictions, players, activePlayerIdx, flagMap }) {
-  const { fixtures, groups } = useTournament();
+  const { fixtures } = useTournament();
   const [selectedDate, setSelectedDate] = useState(null);
-  const [filterGroup, setFilterGroup] = useState("ALL");
-  const [filterMatchday, setFilterMatchday] = useState("ALL");
-  const [filterKO, setFilterKO] = useState("ALL");  // ALL | R32 | R16 | QF | SF | FINAL
-  const [phase, setPhase] = useState("ALL"); // ALL | grupo | ko
   const [detailMatch, setDetailMatch] = useState(null);
 
   const allDates = useMemo(() => [...new Set(fixtures.map(f => f.date))].sort(), [fixtures]);
@@ -33,32 +28,18 @@ export function CalendarioTab({ results, setResult, predictions, players, active
   const effectiveDate = useMemo(() => {
     if (selectedDate) return selectedDate;
     const today = new Date().toISOString().slice(0, 10);
-    return allDates.find(d => d >= today) ?? allDates[allDates.length - 1] ?? null;
+    // Hoy si hay partidos hoy, si no la fecha pasada más reciente
+    if (allDates.includes(today)) return today;
+    const past = allDates.filter(d => d < today);
+    return past[past.length - 1] ?? allDates[0] ?? null;
   }, [selectedDate, allDates]);
 
-  const hasKO = useMemo(() => fixtures.some(f => KO_GROUPS.includes(f.group)), [fixtures]);
-  const koPhases = useMemo(() => KO_GROUPS.filter(p => fixtures.some(f => f.group === p)), [fixtures]);
-  const groupKeys = useMemo(() => Object.keys(groups), [groups]);
-
-  const dayFixtures = useMemo(() => {
-    let list = fixtures.filter(f => f.date === effectiveDate);
-    if (phase === "grupo")  list = list.filter(f => !KO_GROUPS.includes(f.group));
-    if (phase === "ko")     list = list.filter(f => KO_GROUPS.includes(f.group));
-    if (filterGroup !== "ALL")    list = list.filter(f => f.group === filterGroup);
-    if (filterMatchday !== "ALL") list = list.filter(f => String(f.matchday) === filterMatchday);
-    if (filterKO !== "ALL")       list = list.filter(f => f.group === filterKO);
-    return list.sort((a, b) => {
+  const dayFixtures = useMemo(() =>
+    fixtures.filter(f => f.date === effectiveDate).sort((a, b) => {
       const toMin = t => { const [h, m] = t.replace(/\+.*/, "").split(":").map(Number); return h * 60 + m; };
       return toMin(a.timeES) - toMin(b.timeES);
-    });
-  }, [fixtures, effectiveDate, phase, filterGroup, filterMatchday, filterKO]);
-
-  function switchPhase(p) {
-    setPhase(p);
-    setFilterGroup("ALL");
-    setFilterMatchday("ALL");
-    setFilterKO("ALL");
-  }
+    })
+  , [fixtures, effectiveDate]);
 
   return (
     <div style={{ padding: 16 }} className="fade-in">
@@ -68,9 +49,9 @@ export function CalendarioTab({ results, setResult, predictions, players, active
       </div>
 
       {/* Selector de fechas */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 10, overflowX: "auto", paddingBottom: 4 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto", paddingBottom: 4 }}>
         {allDates.map(d => (
-          <button key={d} onClick={() => { setSelectedDate(d); setPhase("ALL"); setFilterGroup("ALL"); setFilterMatchday("ALL"); setFilterKO("ALL"); }} style={{
+          <button key={d} onClick={() => setSelectedDate(d)} style={{
             flexShrink: 0, padding: "6px 10px", borderRadius: 8, cursor: "pointer",
             border: d === effectiveDate ? "1.5px solid #f5c842" : "1px solid #1a1a2a",
             background: d === effectiveDate ? "rgba(245,200,66,.15)" : "#111120",
@@ -80,45 +61,9 @@ export function CalendarioTab({ results, setResult, predictions, players, active
         ))}
       </div>
 
-      {/* Filtro fase (solo si hay eliminatorias) */}
-      {hasKO && (
-        <div style={{ display: "flex", gap: 6, marginBottom: 8, overflowX: "auto", paddingBottom: 2 }}>
-          {[["ALL","Todos"],["grupo","Grupos"],["ko","Eliminatorias"]].map(([v,l]) => (
-            <FilterChip key={v} label={l} active={phase === v} onClick={() => switchPhase(v)} />
-          ))}
-        </div>
-      )}
-
-      {/* Filtros de grupo + jornada */}
-      {phase !== "ko" && (
-        <>
-          <div style={{ display: "flex", gap: 6, marginBottom: 6, overflowX: "auto", paddingBottom: 2 }}>
-            <FilterChip label="Todos Gr." active={filterGroup === "ALL"} onClick={() => setFilterGroup("ALL")} />
-            {groupKeys.map(g => (
-              <FilterChip key={g} label={`Gr.${g}`} active={filterGroup === g} onClick={() => setFilterGroup(g)} />
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 10, overflowX: "auto", paddingBottom: 2 }}>
-            {["ALL","1","2","3"].map(md => (
-              <FilterChip key={md} label={md === "ALL" ? "Todas J." : `J${md}`} active={filterMatchday === md} onClick={() => setFilterMatchday(md)} />
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Filtros de fase KO */}
-      {phase !== "grupo" && hasKO && koPhases.length > 0 && (
-        <div style={{ display: "flex", gap: 6, marginBottom: 10, overflowX: "auto", paddingBottom: 2 }}>
-          <FilterChip label="Toda Elim." active={filterKO === "ALL"} onClick={() => setFilterKO("ALL")} />
-          {koPhases.map(p => (
-            <FilterChip key={p} label={PHASE_LABEL[p] ?? p} active={filterKO === p} onClick={() => setFilterKO(p)} />
-          ))}
-        </div>
-      )}
-
       {/* Partidos */}
       {dayFixtures.length === 0 && (
-        <div style={{ textAlign: "center", padding: 40, color: "#3a3a60", fontSize: 13 }}>Sin partidos este día con estos filtros</div>
+        <div style={{ textAlign: "center", padding: 40, color: "#3a3a60", fontSize: 13 }}>Sin partidos este día</div>
       )}
       {dayFixtures.map(m => {
         const isKO = KO_GROUPS.includes(m.group);
@@ -151,5 +96,3 @@ export function CalendarioTab({ results, setResult, predictions, players, active
     </div>
   );
 }
-
-

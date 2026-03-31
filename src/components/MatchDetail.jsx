@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // Iconos de eventos
 const EVENT_ICON = {
@@ -139,8 +139,16 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
   const homeLineup = data?.lineups?.find(l => l.team?.id === homeTeamId) ?? data?.lineups?.[0];
   const awayLineup = data?.lineups?.find(l => l.team?.id === awayTeamId) ?? data?.lineups?.[1];
 
-  // Para comparar eventos usamos el nombre del equipo local según el primer lineup
-  const homeApiName = homeLineup?.team?.name;
+  // Swipe-down para cerrar
+  const sheetRef = useRef(null);
+  const touchStartY = useRef(null);
+  function onTouchStart(e) { touchStartY.current = e.touches[0].clientY; }
+  function onTouchEnd(e) {
+    if (touchStartY.current == null) return;
+    const delta = e.changedTouches[0].clientY - touchStartY.current;
+    if (delta > 80) onClose();
+    touchStartY.current = null;
+  }
 
   return (
     <div
@@ -152,7 +160,10 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
       }}
     >
       <div
+        ref={sheetRef}
         onClick={e => e.stopPropagation()}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
         style={{
           background: "#0f0f1c",
           border: "1px solid #1a1a2a",
