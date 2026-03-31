@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { MatchRow } from "../components/MatchRow";
+import { MatchDetail } from "../components/MatchDetail";
 import { useTournament } from "../context/TournamentContext";
 
-export function GruposTab({ standings, results, setResult, predictions, players, activePlayerIdx }) {
+export function GruposTab({ standings, results, setResult, predictions, players, activePlayerIdx, flagMap }) {
   const { fixtures, groups } = useTournament();
   const [expandedGroups, setExpandedGroups] = useState({});
+  const [detailMatch, setDetailMatch] = useState(null);
 
   return (
     <div style={{ padding: 16 }} className="fade-in">
@@ -72,6 +74,7 @@ export function GruposTab({ standings, results, setResult, predictions, players,
                       activePlayerIdx={activePlayerIdx}
                       onPredChange={() => {}}
                       mode="results"
+                      onDetail={(match, rd) => setDetailMatch({ match, resultData: rd })}
                     />
                   ))}
                 </div>
@@ -80,6 +83,14 @@ export function GruposTab({ standings, results, setResult, predictions, players,
           </div>
         );
       })}
+      {detailMatch && (
+        <MatchDetail
+          match={detailMatch.match}
+          resultData={detailMatch.resultData}
+          flagMap={flagMap}
+          onClose={() => setDetailMatch(null)}
+        />
+      )}
     </div>
   );
 }

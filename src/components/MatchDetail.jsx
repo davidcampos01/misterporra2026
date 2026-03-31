@@ -181,22 +181,31 @@ function SinglePitch({ homeLineup, awayLineup, events }) {
     }
   });
 
-  function buildRows(lineup, ascending) {
+  function buildRows(lineup, ascending, mirrorCols) {
     const byRow = {};
-    (lineup?.startXI ?? []).forEach(({ player: p }) => {
+    const allPlayers = (lineup?.startXI ?? []).map(({ player: p }) => p);
+    // Calcular max columna de cada fila para poder invertir
+    const rowMaxCol = {};
+    allPlayers.forEach(p => {
+      const [r, c] = (p.grid ?? "1:1").split(":").map(Number);
+      rowMaxCol[r] = Math.max(rowMaxCol[r] ?? 0, c);
+    });
+    allPlayers.forEach(p => {
       const [r, c] = (p.grid ?? "1:1").split(":").map(Number);
       if (!byRow[r]) byRow[r] = [];
-      byRow[r].push({ ...p, _col: c });
+      // Si mirrorCols, invertimos la columna → lateral derecho queda a la derecha
+      const col = mirrorCols ? (rowMaxCol[r] + 1 - c) : c;
+      byRow[r].push({ ...p, _col: col });
     });
     return Object.keys(byRow).map(Number)
       .sort(ascending ? (a, b) => a - b : (a, b) => b - a)
       .map(row => ({ row, players: [...byRow[row]].sort((a, b) => a._col - b._col) }));
   }
 
-  // Home arriba: GK (row 1) en el borde superior → ascendente
-  const homeRows = buildRows(homeLineup, true);
-  // Away abajo: GK (row 1) en el borde inferior → descendente (forwards cerca del centro)
-  const awayRows = buildRows(awayLineup, false);
+  // Home arriba: GK (row 1) en el borde superior → ascendente, columnas espejadas
+  const homeRows = buildRows(homeLineup, true, true);
+  // Away abajo: GK (row 1) en el borde inferior → descendente, columnas naturales
+  const awayRows = buildRows(awayLineup, false, false);
 
   const homeSubs = homeLineup?.substitutes ?? [];
   const awaySubs = awayLineup?.substitutes ?? [];
@@ -252,12 +261,8 @@ function SinglePitch({ homeLineup, awayLineup, events }) {
           </div>
         ))}
 
-        {/* Nombres en la línea central */}
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 18px",
-          position: "relative", zIndex: 1, margin: "0 0 14px" }}>
-          <span style={{ fontSize: 8, color: "rgba(255,255,255,0.18)", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{homeLineup?.team?.name}</span>
-          <span style={{ fontSize: 8, color: "rgba(255,255,255,0.18)", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{awayLineup?.team?.name}</span>
-        </div>
+        {/* Separador línea central */}
+        <div style={{ height: 14, position: "relative", zIndex: 1 }} />
 
         {/* Equipo visitante (mitad inferior) */}
         {awayRows.map(({ row, players }, idx) => (
