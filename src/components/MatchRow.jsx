@@ -116,7 +116,6 @@ export function MatchRow({ match, resultData, onResultChange, predictions, playe
           if (!pred || pred.h === "" || pred.h === undefined) return null;
           const color = PLAYER_COLORS[idx % 6];
           const sc = hasResult ? scoreMatch(+rh, +ra, +pred.h, +pred.a) : null;
-          if (sc !== null && sc.pts === 0) return null; // sin puntos → no mostrar
           return (
             <div key={idx} style={{ display: "flex", alignItems: "center", gap: 4, background: color.light, border: `1px solid ${color.bg}`, borderRadius: 6, padding: "2px 7px", fontSize: 11 }}>
               <span style={{ color: color.text, fontWeight: 700 }}>{pl.name.slice(0, 8)}</span>
@@ -124,6 +123,7 @@ export function MatchRow({ match, resultData, onResultChange, predictions, playe
               <span style={{ fontFamily: "'Space Mono',monospace", color: color.text }}>{pred.h}–{pred.a}</span>
               <span style={{ fontSize: 13 }}>{awayFlag}</span>
               {sc !== null && sc.pts > 0 && <span style={{ background: color.bg, color: "#fff", borderRadius: 4, padding: "1px 5px", fontWeight: 800, fontSize: 10 }}>+{sc.pts}</span>}
+              {sc !== null && sc.pts === 0 && <span style={{ color: "#3a3a60", fontSize: 10 }}>✗</span>}
             </div>
           );
         }).filter(Boolean);
