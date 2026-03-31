@@ -179,6 +179,7 @@ export function LigaTab({ onBack }) {
   const [matchesData, setMatchesData]     = useState(null);
   const [loadingM, setLoadingM]           = useState(false);
   const [errorM, setErrorM]               = useState(null);
+  const [autoSeekDone, setAutoSeekDone]   = useState(false);
   const league = LEAGUES.find(l => l.code === leagueCode);
 
   // Fetch standings + currentMatchday al cambiar de liga
@@ -188,6 +189,7 @@ export function LigaTab({ onBack }) {
     setStandingsData(null);
     setErrorS(null);
     setMatchesData(null);
+    setAutoSeekDone(false);
     // Standings: cache 1 hora (cambia tras cada jornada)
     const key = cacheKey("standings", league.code, league.season);
     proxyFetch("standings", league.code, league.season, null, key, false)
@@ -215,7 +217,18 @@ export function LigaTab({ onBack }) {
     const isPermanent = selectedMatchday < maxMatchday;
     const key = cacheKey("matches", league.code, league.season, selectedMatchday);
     proxyFetch("matches", league.code, league.season, selectedMatchday, key, isPermanent)
-      .then(d => setMatchesData(d))
+      .then(d => {
+        setMatchesData(d);
+        // Auto-buscar la jornada más reciente con resultados (solo al primer acceso por liga)
+        if (!autoSeekDone) {
+          const hasFinished = (d.matches ?? []).some(m => m.status === "FINISHED");
+          if (!hasFinished && selectedMatchday > 1) {
+            setSelectedMatchday(p => p - 1); // relanza este effect
+          } else {
+            setAutoSeekDone(true);
+          }
+        }
+      })
       .catch(e => setErrorM(e.message))
       .finally(() => setLoadingM(false));
   }, [selectedMatchday, leagueCode]);

@@ -63,8 +63,8 @@ const FLAG_MAP = {
 };
 
 const LEAGUE_CONFIG = {
-  euro2024:    { leagueId: 4,  season: 2024, fdoCode: "EC", fixtures: EURO2024_FIXTURES },
-  mundial2026: { leagueId: 1,  season: 2026, fdoCode: "WC", fixtures: FIXTURES },
+  euro2024:    { leagueId: 4,  season: 2024, fixtures: EURO2024_FIXTURES },
+  mundial2026: { leagueId: 1,  season: 2026, fixtures: FIXTURES },
 };
 
 function fsVal(v) {
@@ -117,78 +117,40 @@ async function firestoreRead(docPath) {
 }
 
 // Lógica principal exportada también para uso desde el cron-worker
-export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2, footballDataKey) {
+export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2) {
   const config = LEAGUE_CONFIG[tournamentId];
   if (!config) throw new Error(`Torneo desconocido: ${tournamentId}`);
 
   const teamOverrides = await firestoreRead(`game/${tournamentId}`);
 
-  // --- Fuente primaria: football-data.org (sin límite diario) ---
+  if (!apiFootballKey) throw new Error("Falta API_FOOTBALL_KEY");
+
+  const apfUrl = `https://v3.football.api-sports.io/fixtures?league=${config.leagueId}&season=${config.season}&status=FT-AET-PEN`;
+  const tryFetch = async (key) => {
+    const r = await fetch(apfUrl, { headers: { "x-apisports-key": key } });
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (d.errors?.requests || d.errors?.token) return null;
+    return d;
+  };
+  let apfData = await tryFetch(apiFootballKey);
+  if (!apfData && apiFootballKey2) apfData = await tryFetch(apiFootballKey2);
+  if (!apfData) throw new Error("Límite de peticiones alcanzado en API-Football");
+
   const scoreByTeams = {};
-  let usedFdo = false;
-
-  if (footballDataKey && config.fdoCode) {
-    try {
-      const fdoUrl = `https://api.football-data.org/v4/competitions/${config.fdoCode}/matches?status=FINISHED&season=${config.season}`;
-      const r = await fetch(fdoUrl, { headers: { "X-Auth-Token": footballDataKey } });
-      if (r.ok) {
-        const d = await r.json();
-        for (const m of d.matches ?? []) {
-          const home = TEAM_MAP[m.homeTeam.name] ?? m.homeTeam.name;
-          const away = TEAM_MAP[m.awayTeam.name] ?? m.awayTeam.name;
-          const fh = m.score.fullTime.home, fa = m.score.fullTime.away;
-          if (fh === null || fa === null) continue;
-          const entry = { home, away, homeScore: String(fh), awayScore: String(fa) };
-          const ph = m.score.penalties?.home, pa = m.score.penalties?.away;
-          if (ph != null && pa != null) { entry.penaltyHome = String(ph); entry.penaltyAway = String(pa); }
-          scoreByTeams[`${home}|${away}`] = entry;
-        }
-        usedFdo = Object.keys(scoreByTeams).length > 0;
-      }
-    } catch (_) {}
-  }
-
-  // --- Fuente API-Football: para apiId y como fallback si FDO no está disponible ---
-  let apfData = null;
-  if (apiFootballKey) {
-    const apfUrl = `https://v3.football.api-sports.io/fixtures?league=${config.leagueId}&season=${config.season}&status=FT-AET-PEN`;
-    const tryFetch = async (key) => {
-      const r = await fetch(apfUrl, { headers: { "x-apisports-key": key } });
-      if (!r.ok) return null;
-      const d = await r.json();
-      if (d.errors?.requests || d.errors?.token) return null;
-      return d;
+  for (const fix of apfData.response ?? []) {
+    const home = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
+    const away = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
+    if (fix.goals.home === null || fix.goals.away === null) continue;
+    const entry = {
+      home, away,
+      homeScore: String(fix.goals.home),
+      awayScore: String(fix.goals.away),
+      apiId: fix.fixture.id,
     };
-    apfData = await tryFetch(apiFootballKey);
-    if (!apfData && apiFootballKey2) apfData = await tryFetch(apiFootballKey2);
-  }
-
-  if (!usedFdo) {
-    // FDO no disponible: usar API-Football como fuente única
-    if (!apfData) throw new Error("Sin fuente de datos: configura FOOTBALL_DATA_KEY o revisa el límite de API_FOOTBALL_KEY");
-    for (const fix of apfData.response ?? []) {
-      const home = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
-      const away = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
-      if (fix.goals.home === null || fix.goals.away === null) continue;
-      const entry = {
-        home, away,
-        homeScore: String(fix.goals.home),
-        awayScore: String(fix.goals.away),
-        apiId: fix.fixture.id,
-      };
-      const ph = fix.score.penalty.home, pa = fix.score.penalty.away;
-      if (ph !== null && pa !== null) { entry.penaltyHome = String(ph); entry.penaltyAway = String(pa); }
-      scoreByTeams[`${home}|${away}`] = entry;
-    }
-  } else if (apfData?.response) {
-    // FDO OK: enriquecer con apiId de API-Football
-    for (const fix of apfData.response) {
-      const h = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
-      const a = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
-      const id = fix.fixture.id;
-      if (scoreByTeams[`${h}|${a}`]) scoreByTeams[`${h}|${a}`].apiId = id;
-      if (scoreByTeams[`${a}|${h}`]) scoreByTeams[`${a}|${h}`].apiId = id;
-    }
+    const ph = fix.score.penalty.home, pa = fix.score.penalty.away;
+    if (ph !== null && pa !== null) { entry.penaltyHome = String(ph); entry.penaltyAway = String(pa); }
+    scoreByTeams[`${home}|${away}`] = entry;
   }
 
   const results = {};
@@ -265,13 +227,13 @@ export async function onRequest({ request, env }) {
     }
   }
 
-  if (!env.API_FOOTBALL_KEY && !env.FOOTBALL_DATA_KEY) {
-    return Response.json({ error: "Falta API_FOOTBALL_KEY o FOOTBALL_DATA_KEY" }, { status: 500 });
+  if (!env.API_FOOTBALL_KEY) {
+    return Response.json({ error: "Falta API_FOOTBALL_KEY" }, { status: 500 });
   }
 
   const tournamentId = url.searchParams.get("tournament") ?? "mundial2026";
   try {
-    const result = await runCronSync(tournamentId, env.API_FOOTBALL_KEY, env.API_FOOTBALL_KEY_2, env.FOOTBALL_DATA_KEY);
+    const result = await runCronSync(tournamentId, env.API_FOOTBALL_KEY, env.API_FOOTBALL_KEY_2);
     return Response.json({ ok: true, ...result });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
