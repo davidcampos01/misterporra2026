@@ -84,6 +84,17 @@ function PlayerPin({ player, subIn, isAway }) {
   const borderColor = isAway ? "#6a3060" : "#305070";
   const bgColor     = isAway ? "#1a1020" : "#101828";
 
+  // Badge pequeño en esquina del círculo
+  const Badge = ({ style, children }) => (
+    <div style={{
+      position: "absolute", background: "#0c0c1a", borderRadius: 4,
+      minWidth: 14, height: 14, fontSize: 9,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      gap: 1, lineHeight: 1, border: "1px solid #1a1a2a",
+      ...style,
+    }}>{children}</div>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 42, maxWidth: 54 }}>
       <div style={{
@@ -94,13 +105,30 @@ function PlayerPin({ player, subIn, isAway }) {
         flexShrink: 0, position: "relative",
       }}>
         {player.number}
+        {/* Goles – arriba derecha */}
+        {stats?.goals > 0 && (
+          <Badge style={{ top: -6, right: -6 }}>
+            ⚽{stats.goals > 1 && <span style={{ color: "#f0f0f8", fontSize: 7, fontWeight: 700 }}>{stats.goals}</span>}
+          </Badge>
+        )}
+        {/* Asistencias – arriba izquierda */}
+        {stats?.assists > 0 && (
+          <Badge style={{ top: -6, left: -6 }}>
+            👟{stats.assists > 1 && <span style={{ color: "#f0f0f8", fontSize: 7, fontWeight: 700 }}>{stats.assists}</span>}
+          </Badge>
+        )}
+        {/* Tarjeta – abajo izquierda */}
+        {stats?.card && (
+          <Badge style={{ bottom: -6, left: -6, border: "none", background: "transparent" }}>
+            {stats.card === "red" ? "🟥" : "🟨"}
+          </Badge>
+        )}
+        {/* Cambio – abajo derecha (mismo símbolo que eventos) */}
         {subIn && (
-          <div style={{
-            position: "absolute", bottom: -3, right: -3,
-            fontSize: 7, background: "#0f0f1c", borderRadius: "50%",
-            width: 13, height: 13, display: "flex", alignItems: "center", justifyContent: "center",
-            border: `1px solid ${showSub ? "#a066ff" : borderColor}`,
-          }}>🔄</div>
+          <Badge style={{ bottom: -6, right: -6, border: `1px solid ${showSub ? "#a066ff" : "#2a2a50"}` }}>
+            <span style={{ color: "#06d6a0", fontSize: 8, fontWeight: 900, lineHeight: 1 }}>↑</span>
+            <span style={{ color: "#ff6b6b", fontSize: 8, fontWeight: 900, lineHeight: 1 }}>↓</span>
+          </Badge>
         )}
       </div>
       <div style={{
@@ -119,6 +147,26 @@ function SinglePitch({ homeLineup, awayLineup, events }) {
   const substMap = {};
   (events ?? []).filter(ev => ev.type === "subst").forEach(ev => {
     if (ev.player?.name && ev.assist?.name) substMap[ev.player.name] = ev.assist.name;
+  });
+
+  // Stats por jugador: goles, asistencias, tarjeta
+  const playerStats = {};
+  const getStat = n => {
+    if (!n) return null;
+    if (!playerStats[n]) playerStats[n] = { goals: 0, assists: 0, card: null };
+    return playerStats[n];
+  };
+  (events ?? []).forEach(ev => {
+    const p = ev.player?.name, a = ev.assist?.name;
+    if (ev.type === "Goal" && ev.detail !== "Missed Penalty") {
+      if (ev.detail !== "Own Goal" && p) getStat(p).goals++;
+      if (a) getStat(a).assists++;
+    }
+    if (ev.type === "Card" && p) {
+      const s = getStat(p);
+      if (ev.detail === "Red Card" || ev.detail === "Yellow Red Card") s.card = "red";
+      else if (!s.card) s.card = "yellow";
+    }
   });
 
   function buildRows(lineup, ascending) {
@@ -169,7 +217,7 @@ function SinglePitch({ homeLineup, awayLineup, events }) {
       <div style={{
         borderRadius: 12, border: "1px solid #1a3a1a",
         background: "linear-gradient(180deg,#163a1c 0%,#1a4422 50%,#163a1c 100%)",
-        position: "relative", padding: "14px 4px",
+        position: "relative", padding: "18px 4px",
         overflow: "hidden",
       }}>
         {/* Decoración del campo */}
@@ -183,18 +231,18 @@ function SinglePitch({ homeLineup, awayLineup, events }) {
           border: "1px solid rgba(255,255,255,0.07)", borderBottom: "none" }} />
 
         {/* Equipo local (mitad superior) */}
-        {homeRows.map(({ row, players }, idx) => (
+        {homeRows.map(({ row, players }) => (
           <div key={`h${row}`} style={{
             display: "flex", justifyContent: "space-around", alignItems: "flex-start",
-            marginBottom: 10, position: "relative", zIndex: 1,
+            marginBottom: 14, position: "relative", zIndex: 1,
           }}>
-            {players.map(p => <PlayerPin key={p.id} player={p} subIn={substMap[p.name]} isAway={false} />)}
+            {players.map(p => <PlayerPin key={p.id} player={p} subIn={substMap[p.name]} isAway={false} stats={playerStats[p.name]} />)}
           </div>
         ))}
 
         {/* Nombres en la línea central */}
         <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 18px",
-          position: "relative", zIndex: 1, margin: "2px 0 10px" }}>
+          position: "relative", zIndex: 1, margin: "0 0 14px" }}>
           <span style={{ fontSize: 8, color: "rgba(255,255,255,0.18)", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{homeLineup?.team?.name}</span>
           <span style={{ fontSize: 8, color: "rgba(255,255,255,0.18)", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{awayLineup?.team?.name}</span>
         </div>
@@ -203,9 +251,9 @@ function SinglePitch({ homeLineup, awayLineup, events }) {
         {awayRows.map(({ row, players }, idx) => (
           <div key={`a${row}`} style={{
             display: "flex", justifyContent: "space-around", alignItems: "flex-start",
-            marginBottom: idx < awayRows.length - 1 ? 10 : 0, position: "relative", zIndex: 1,
+            marginBottom: idx < awayRows.length - 1 ? 14 : 0, position: "relative", zIndex: 1,
           }}>
-            {players.map(p => <PlayerPin key={p.id} player={p} subIn={substMap[p.name]} isAway={true} />)}
+            {players.map(p => <PlayerPin key={p.id} player={p} subIn={substMap[p.name]} isAway={true} stats={playerStats[p.name]} />)}
           </div>
         ))}
       </div>
