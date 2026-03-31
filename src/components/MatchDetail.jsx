@@ -70,36 +70,122 @@ function EventRow({ ev, homeTeamId }) {
   );
 }
 
-function LineupColumn({ team }) {
-  if (!team) return null;
-  const pos = { G: "🧤", D: "🛡️", M: "⚙️", F: "⚡" };
+function PlayerPin({ player }) {
+  const parts = (player.name ?? "").split(" ");
+  const shortName = parts.length > 1 ? parts[parts.length - 1] : parts[0];
   return (
-    <div style={{ flex: 1 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 40, maxWidth: 52 }}>
       <div style={{
-        fontSize: 11, fontWeight: 800, color: "#f5c842",
-        letterSpacing: 1, textTransform: "uppercase",
-        marginBottom: 8, textAlign: "center",
+        width: 30, height: 30, borderRadius: "50%",
+        background: "#111130", border: "2px solid #3a3a70",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: "'Space Mono',monospace", fontSize: 11, fontWeight: 700, color: "#f0f0f8",
+        flexShrink: 0,
       }}>
-        {team.team?.name}
-        <span style={{ color: "#4040a0", marginLeft: 6, fontWeight: 400 }}>({team.formation})</span>
+        {player.number}
       </div>
-      {team.startXI?.map(({ player: p }) => (
-        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
-          <span style={{ fontSize: 9, color: "#3030a0", minWidth: 16, textAlign: "right" }}>{p.number}</span>
-          <span style={{ fontSize: 10 }}>{pos[p.pos] ?? "·"}</span>
-          <span style={{ fontSize: 11, color: "#d0d0f0" }}>{p.name}</span>
+      <div style={{
+        fontSize: 9, color: "#e0e0f8", textAlign: "center",
+        maxWidth: 50, lineHeight: 1.2,
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        textShadow: "0 1px 3px rgba(0,0,0,0.8)",
+      }}>
+        {shortName}
+      </div>
+    </div>
+  );
+}
+
+function PitchLineup({ team, label }) {
+  if (!team) return null;
+
+  // Agrupar titulares por fila (campo grid "fila:columna")
+  const byRow = {};
+  (team.startXI ?? []).forEach(({ player: p }) => {
+    const [r, c] = (p.grid ?? "1:1").split(":").map(Number);
+    if (!byRow[r]) byRow[r] = [];
+    byRow[r].push({ ...p, _col: c });
+  });
+
+  // Filas descendentes: delanteros arriba, portero abajo
+  const rows = Object.keys(byRow).map(Number).sort((a, b) => b - a);
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      {/* Barra entrenador */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 10,
+        padding: "8px 12px",
+        background: "#080812", border: "1px solid #1a1a2a",
+        borderRadius: "10px 10px 0 0",
+      }}>
+        <div style={{ fontSize: 22, lineHeight: 1 }}>👔</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f8",
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {team.coach?.name ?? "–"}
+          </div>
+          <div style={{ fontSize: 10, color: "#4040a0" }}>Entrenador · {label}</div>
         </div>
-      ))}
-      {team.substitutes?.length > 0 && (
-        <>
-          <div style={{ fontSize: 9, color: "#3030a0", marginTop: 8, marginBottom: 4, letterSpacing: 1, textTransform: "uppercase" }}>Suplentes</div>
-          {team.substitutes.map(({ player: p }) => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
-              <span style={{ fontSize: 9, color: "#3030a0", minWidth: 16, textAlign: "right" }}>{p.number}</span>
-              <span style={{ fontSize: 11, color: "#5050a0" }}>{p.name}</span>
+        <div style={{ flexShrink: 0, textAlign: "right" }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: "#f5c842", letterSpacing: 0.5 }}>{team.team?.name}</div>
+          <div style={{ fontSize: 10, color: "#5050a0", fontFamily: "'Space Mono',monospace" }}>{team.formation}</div>
+        </div>
+      </div>
+
+      {/* Campo */}
+      <div style={{
+        border: "1px solid #1a3a1a", borderTop: "none",
+        borderRadius: "0 0 10px 10px",
+        padding: "14px 6px 10px",
+        background: "#1a4020",
+        backgroundImage: [
+          "repeating-linear-gradient(180deg,transparent,transparent 28px,rgba(0,0,0,0.12) 28px,rgba(0,0,0,0.12) 56px)",
+          "linear-gradient(180deg,#1a4020 0%,#163518 100%)",
+        ].join(","),
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        {/* Línea central */}
+        <div style={{ position: "absolute", top: "50%", left: "8%", right: "8%",
+          height: 1, background: "rgba(255,255,255,0.12)" }} />
+        {/* Círculo central */}
+        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
+          width: 50, height: 50, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.1)" }} />
+
+        {rows.map((row, idx) => {
+          const players = [...byRow[row]].sort((a, b) => a._col - b._col);
+          return (
+            <div key={row} style={{
+              display: "flex", justifyContent: "space-around", alignItems: "flex-start",
+              marginBottom: idx < rows.length - 1 ? 12 : 0,
+              position: "relative", zIndex: 1,
+            }}>
+              {players.map(p => <PlayerPin key={p.id} player={p} />)}
             </div>
-          ))}
-        </>
+          );
+        })}
+      </div>
+
+      {/* Suplentes */}
+      {team.substitutes?.length > 0 && (
+        <div style={{ marginTop: 10, padding: "0 4px" }}>
+          <div style={{ fontSize: 9, color: "#3a3a60", letterSpacing: 1,
+            textTransform: "uppercase", marginBottom: 5, fontWeight: 700 }}>
+            Suplentes
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "3px 12px" }}>
+            {team.substitutes.map(({ player: p }) => (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 9, color: "#3a3a60",
+                  fontFamily: "'Space Mono',monospace", minWidth: 14, textAlign: "right" }}>
+                  {p.number}
+                </span>
+                <span style={{ fontSize: 11, color: "#5050a0" }}>{p.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -258,15 +344,13 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
 
             {/* Alineaciones */}
             {(homeLineup || awayLineup) && (
-              <div style={{ padding: "0 20px 16px", borderTop: "1px solid #1a1a2a", paddingTop: 16 }}>
-                <div style={{ fontSize: 11, color: "#4040a0", letterSpacing: 1, textTransform: "uppercase", marginBottom: 12, fontWeight: 700 }}>
+              <div style={{ padding: "16px 16px 0", borderTop: "1px solid #1a1a2a" }}>
+                <div style={{ fontSize: 11, color: "#4040a0", letterSpacing: 1,
+                  textTransform: "uppercase", marginBottom: 14, fontWeight: 700 }}>
                   Alineaciones
                 </div>
-                <div style={{ display: "flex", gap: 16 }}>
-                  <LineupColumn team={homeLineup} />
-                  <div style={{ width: 1, background: "#1a1a2a", flexShrink: 0 }} />
-                  <LineupColumn team={awayLineup} />
-                </div>
+                <PitchLineup team={homeLineup} label="Local" />
+                <PitchLineup team={awayLineup} label="Visitante" />
               </div>
             )}
           </>
