@@ -31,27 +31,36 @@ function EventRow({ ev, homeTeamId }) {
   const playerName = ev.player?.name ?? "";
   const assistName = ev.assist?.name;
   const isGoal = ev.type === "Goal";
+  const isSubst = ev.type === "subst";
 
   const Cell = ({ side }) => {
     const show = side === "home" ? isHome : !isHome;
-    if (!show) return <div style={{ flex: 1 }} />;
+    const reversed = side === "home";
+    if (!show) return <div style={{ flex: "1 1 0" }} />;
     const nameColor = isGoal ? "#f0f0f8" : "#7070a0";
     return (
-      <div style={{ flex: 1, textAlign: side === "home" ? "right" : "left", padding: side === "home" ? "0 8px 0 0" : "0 0 0 8px" }}>
+      <div style={{ flex: "1 1 0", minWidth: 0, textAlign: reversed ? "right" : "left",
+        padding: reversed ? "0 8px 0 0" : "0 0 0 8px" }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 4,
-          flexDirection: side === "home" ? "row-reverse" : "row" }}>
-          <span style={{ fontSize: 13, lineHeight: 1 }}>{icon}</span>
-          <div>
-            <div style={{ fontSize: 12, color: nameColor, fontWeight: isGoal ? 700 : 400 }}>
-              {playerName}
-            </div>
-            {ev.type === "subst" && assistName && (
-              <div style={{ fontSize: 10, color: "#4040a0" }}>↑ {assistName}</div>
-            )}
-            {isGoal && assistName && (
-              <div style={{ fontSize: 10, color: "#4040a0" }}>ast. {assistName}</div>
-            )}
-          </div>
+          flexDirection: reversed ? "row-reverse" : "row", flexWrap: "wrap",
+          justifyContent: reversed ? "flex-start" : "flex-start" }}>
+          {/* Icono del evento */}
+          <span style={{ fontSize: 13, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
+          {/* Nombre del jugador */}
+          <span style={{ fontSize: 12, color: nameColor, fontWeight: isGoal ? 700 : 400, lineHeight: 1.3 }}>
+            {playerName}
+          </span>
+          {/* Asistencia inline: nombre + 👟 */}
+          {isGoal && assistName && (
+            <>
+              <span style={{ fontSize: 11, color: "#7070a0", lineHeight: 1 }}>👟</span>
+              <span style={{ fontSize: 11, color: "#6060a0", lineHeight: 1.3 }}>{assistName}</span>
+            </>
+          )}
+          {/* Sustitución: jugador que entra */}
+          {isSubst && assistName && (
+            <span style={{ fontSize: 10, color: "#4040a0", lineHeight: 1.3 }}>↑ {assistName}</span>
+          )}
         </div>
       </div>
     );
@@ -61,7 +70,7 @@ function EventRow({ ev, homeTeamId }) {
     <div style={{ display: "flex", alignItems: "center", minHeight: 30, padding: "2px 0" }}>
       <Cell side="home" />
       <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "#5050a0",
-        minWidth: 36, textAlign: "center", flexShrink: 0, borderLeft: "1px solid #1a1a2a",
+        width: 36, textAlign: "center", flexShrink: 0, borderLeft: "1px solid #1a1a2a",
         borderRight: "1px solid #1a1a2a", padding: "2px 0" }}>
         {minute}'
       </div>
