@@ -38,15 +38,15 @@ const TEAM_MAP = {
 };
 
 const LEAGUE_CONFIG = {
-  euro2024:    { leagueId: 4,  season: 2024 },
-  mundial2026: { leagueId: 1,  season: 2026 },
+  euro2024:    { leagueId: 4,  season: 2024, fdoCode: "EC" },
+  mundial2026: { leagueId: 1,  season: 2026, fdoCode: "WC" },
 };
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
   try {
-    if (!env.API_FOOTBALL_KEY) {
-      return Response.json({ error: "Falta API_FOOTBALL_KEY" }, { status: 500 });
+    if (!env.API_FOOTBALL_KEY && !env.FOOTBALL_DATA_KEY) {
+      return Response.json({ error: "Falta API_FOOTBALL_KEY o FOOTBALL_DATA_KEY" }, { status: 500 });
     }
 
     const tournamentId = url.searchParams.get("tournament") ?? "euro2024";
@@ -55,35 +55,72 @@ export async function onRequest({ request, env }) {
       return Response.json({ error: `Torneo desconocido: ${tournamentId}` }, { status: 400 });
     }
 
-    const apiUrl = `https://v3.football.api-sports.io/fixtures?league=${config.leagueId}&season=${config.season}&status=FT-AET-PEN`;
-
-    async function tryFetch(key) {
-      const r = await fetch(apiUrl, { headers: { "x-apisports-key": key } });
-      if (!r.ok) return null;
-      const d = await r.json();
-      if (d.errors?.requests || d.errors?.token) return null;
-      return d;
+    // --- Fuente primaria: football-data.org (sin límite diario) ---
+    let scores = null;
+    if (env.FOOTBALL_DATA_KEY && config.fdoCode) {
+      try {
+        const fdoUrl = `https://api.football-data.org/v4/competitions/${config.fdoCode}/matches?status=FINISHED&season=${config.season}`;
+        const r = await fetch(fdoUrl, { headers: { "X-Auth-Token": env.FOOTBALL_DATA_KEY } });
+        if (r.ok) {
+          const d = await r.json();
+          if (Array.isArray(d.matches) && d.matches.length > 0) {
+            scores = [];
+            for (const m of d.matches) {
+              const home = TEAM_MAP[m.homeTeam.name] ?? m.homeTeam.name;
+              const away = TEAM_MAP[m.awayTeam.name] ?? m.awayTeam.name;
+              const fh = m.score.fullTime.home, fa = m.score.fullTime.away;
+              if (fh === null || fa === null) continue;
+              const entry = { home, away, homeScore: String(fh), awayScore: String(fa) };
+              const ph = m.score.penalties?.home, pa = m.score.penalties?.away;
+              if (ph != null && pa != null) { entry.penaltyHome = String(ph); entry.penaltyAway = String(pa); }
+              scores.push(entry);
+            }
+          }
+        }
+      } catch (_) {}
     }
 
-    let apiData = await tryFetch(env.API_FOOTBALL_KEY);
-    if (!apiData && env.API_FOOTBALL_KEY_2) apiData = await tryFetch(env.API_FOOTBALL_KEY_2);
-    if (!apiData) return Response.json({ error: "Límite de peticiones alcanzado" }, { status: 429 });
+    // --- Fuente API-Football: para apiId y como fallback si FDO no está disponible ---
+    let apfData = null;
+    if (env.API_FOOTBALL_KEY) {
+      const apfUrl = `https://v3.football.api-sports.io/fixtures?league=${config.leagueId}&season=${config.season}&status=FT-AET-PEN`;
+      const tryFetch = async (key) => {
+        const r = await fetch(apfUrl, { headers: { "x-apisports-key": key } });
+        if (!r.ok) return null;
+        const d = await r.json();
+        if (d.errors?.requests || d.errors?.token) return null;
+        return d;
+      };
+      apfData = await tryFetch(env.API_FOOTBALL_KEY);
+      if (!apfData && env.API_FOOTBALL_KEY_2) apfData = await tryFetch(env.API_FOOTBALL_KEY_2);
+    }
 
-    const scores = [];
-    for (const fix of apiData.response ?? []) {
-      const home = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
-      const away = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
-      const homeScore = fix.goals.home;
-      const awayScore = fix.goals.away;
-      if (homeScore !== null && awayScore !== null) {
-        const entry = { home, away, homeScore: String(homeScore), awayScore: String(awayScore), apiId: fix.fixture.id };
-        const ph = fix.score.penalty.home;
-        const pa = fix.score.penalty.away;
-        if (ph !== null && pa !== null) {
-          entry.penaltyHome = String(ph);
-          entry.penaltyAway = String(pa);
-        }
+    if (!scores) {
+      // Sin FDO: usar API-Football como fuente única
+      if (!apfData) return Response.json({ error: "Límite de peticiones alcanzado" }, { status: 429 });
+      scores = [];
+      for (const fix of apfData.response ?? []) {
+        const home = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
+        const away = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
+        const fh = fix.goals.home, fa = fix.goals.away;
+        if (fh === null || fa === null) continue;
+        const entry = { home, away, homeScore: String(fh), awayScore: String(fa), apiId: fix.fixture.id };
+        const ph = fix.score.penalty.home, pa = fix.score.penalty.away;
+        if (ph !== null && pa !== null) { entry.penaltyHome = String(ph); entry.penaltyAway = String(pa); }
         scores.push(entry);
+      }
+    } else if (apfData?.response) {
+      // FDO OK: enriquecer con apiId de API-Football
+      const idByTeams = {};
+      for (const fix of apfData.response) {
+        const h = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
+        const a = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
+        idByTeams[`${h}|${a}`] = fix.fixture.id;
+        idByTeams[`${a}|${h}`] = fix.fixture.id;
+      }
+      for (const s of scores) {
+        const id = idByTeams[`${s.home}|${s.away}`];
+        if (id) s.apiId = id;
       }
     }
 
