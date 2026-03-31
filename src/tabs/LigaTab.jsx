@@ -1,58 +1,6 @@
 import { useState, useEffect } from "react";
 import { css } from "../styles/global";
 
-const FDO_KEY = import.meta.env.VITE_FOOTBALL_DATA_KEY;
-const FDO_BASE = "https://api.football-data.org/v4";
-
-// Cache en localStorage: resultados de jornadas terminadas no cambian nunca
-const CACHE_VERSION = "v1";
-function cacheKey(type, code, season, matchday) {
-  return `liga_${CACHE_VERSION}_${type}_${code}_${season}${matchday != null ? `_j${matchday}` : ""}`;
-}
-function cacheGet(key) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch { return null; }
-}
-function cacheSet(key, data) {
-  try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
-}
-
-async function fdoFetch(path, lsKey, isPermanent) {
-  // Permanent = jornada ya terminada, cache para siempre
-  // No permanent = jornada en curso o standings, cache 1 hora
-  if (lsKey) {
-    const cached = cacheGet(lsKey);
-    if (cached) {
-      const age = Date.now() - (cached._ts ?? 0);
-      if (isPermanent || age < 3600_000) return cached.data;
-    }
-  }
-  // Reintentos automáticos para errores transitorios (522, 503, etc.)
-  let lastError;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, 1200 * attempt));
-    try {
-      const r = await fetch(`${FDO_BASE}${path}`, {
-        headers: { "X-Auth-Token": FDO_KEY ?? "" },
-      });
-      if (r.ok) {
-        const data = await r.json();
-        if (lsKey) cacheSet(lsKey, { data, _ts: Date.now() });
-        return data;
-      }
-      if (r.status === 429) throw new Error("Límite de peticiones alcanzado (429)");
-      lastError = new Error(`API error ${r.status}`);
-    } catch (e) {
-      if (e.message?.includes("429")) throw e; // no reintentar rate limit
-      lastError = e;
-    }
-  }
-  throw lastError;
-}
-
 const LEAGUES = [
   { code: "PD",  name: "La Liga",        country: "🇪🇸", season: 2025 },
   { code: "PL",  name: "Premier League", country: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", season: 2025 },
@@ -61,6 +9,37 @@ const LEAGUES = [
   { code: "FL1", name: "Ligue 1",        country: "🇫🇷", season: 2025 },
   { code: "DED", name: "Eredivisie",     country: "🇳🇱", season: 2025 },
 ];
+
+function cacheKey(type, code, season, matchday) {
+  return `liga_v1_${type}_${code}_${season}${matchday != null ? `_${matchday}` : ""}`;
+}
+function cacheGet(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { v, ts, ttl } = JSON.parse(raw);
+    if (ttl && Date.now() - ts > ttl) { localStorage.removeItem(key); return null; }
+    return v;
+  } catch { return null; }
+}
+function cacheSet(key, value, isPermanent) {
+  try {
+    const ttl = isPermanent ? null : 3_600_000;
+    localStorage.setItem(key, JSON.stringify({ v: value, ts: Date.now(), ttl }));
+  } catch {}
+}
+async function proxyFetch(type, competition, season, matchday, lsKey, isPermanent) {
+  const cached = cacheGet(lsKey);
+  if (cached) return cached;
+  const params = new URLSearchParams({ type, competition, season });
+  if (matchday != null) params.set("matchday", matchday);
+  const res = await fetch(`/api/liga?${params}`);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  cacheSet(lsKey, data, isPermanent);
+  return data;
+}
 
 function FormBadge({ result }) {
   const config = {
@@ -193,29 +172,14 @@ export function LigaTab({ onBack }) {
   const [leagueCode, setLeagueCode]       = useState("PD");
   const [section, setSection]             = useState("results");
   const [standingsData, setStandingsData] = useState(null);
-  const [matchesData, setMatchesData]     = useState(null);
-  const [selectedMatchday, setSelectedMatchday] = useState(null);
-  const [maxMatchday, setMaxMatchday]     = useState(38);
   const [loadingS, setLoadingS]           = useState(false);
-  const [loadingM, setLoadingM]           = useState(false);
   const [errorS, setErrorS]               = useState(null);
+  const [selectedMatchday, setSelectedMatchday] = useState(null);
+  const [maxMatchday, setMaxMatchday]     = useState(1);
+  const [matchesData, setMatchesData]     = useState(null);
+  const [loadingM, setLoadingM]           = useState(false);
   const [errorM, setErrorM]               = useState(null);
-
   const league = LEAGUES.find(l => l.code === leagueCode);
-
-  if (!FDO_KEY) {
-    return (
-      <div style={{ background: "#080811", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24 }}>
-        <style>{css}</style>
-        <div style={{ fontSize: 40 }}>⚠️</div>
-        <div style={{ color: "#ef4444", fontSize: 13, textAlign: "center", maxWidth: 340 }}>
-          Falta la variable <code>VITE_FOOTBALL_DATA_KEY</code>.<br />
-          Añádela en Cloudflare Pages → Settings → Environment variables con el mismo valor que <code>FOOTBALL_DATA_KEY</code>.
-        </div>
-        <button onClick={onBack} style={{ marginTop: 8, background: "none", border: "1px solid #1a1a2a", color: "#f0f0f8", borderRadius: 8, padding: "8px 20px", cursor: "pointer" }}>← Volver</button>
-      </div>
-    );
-  }
 
   // Fetch standings + currentMatchday al cambiar de liga
   useEffect(() => {
@@ -226,7 +190,7 @@ export function LigaTab({ onBack }) {
     setMatchesData(null);
     // Standings: cache 1 hora (cambia tras cada jornada)
     const key = cacheKey("standings", league.code, league.season);
-    fdoFetch(`/competitions/${league.code}/standings?season=${league.season}`, key, false)
+    proxyFetch("standings", league.code, league.season, null, key, false)
       .then(d => {
         setStandingsData(d);
         const cm = d.season?.currentMatchday;
@@ -250,7 +214,7 @@ export function LigaTab({ onBack }) {
     // Jornadas anteriores a la actual: cache permanente (resultados no cambian)
     const isPermanent = selectedMatchday < maxMatchday;
     const key = cacheKey("matches", league.code, league.season, selectedMatchday);
-    fdoFetch(`/competitions/${league.code}/matches?season=${league.season}&matchday=${selectedMatchday}`, key, isPermanent)
+    proxyFetch("matches", league.code, league.season, selectedMatchday, key, isPermanent)
       .then(d => setMatchesData(d))
       .catch(e => setErrorM(e.message))
       .finally(() => setLoadingM(false));
