@@ -213,13 +213,17 @@ function SinglePitch({ homeLineup, awayLineup, events }) {
       {/* Suplentes de ambos equipos */}
       {(homeSubs.length > 0 || awaySubs.length > 0) && (
         <div style={{ marginTop: 14, display: "flex", gap: 16 }}>
-          {[[homeSubs, homeLineup, false], [awaySubs, awayLineup, true]].map(([subs, lu, away], i) =>
-            subs.length > 0 ? (
+          {[[homeSubs, homeLineup, false], [awaySubs, awayLineup, true]].map(([subs, lu, away], i) => {
+            const POS_ORDER = { G: 0, D: 1, M: 2, F: 3 };
+            const sorted = [...subs].sort((a, b) =>
+              (POS_ORDER[a.player.pos] ?? 9) - (POS_ORDER[b.player.pos] ?? 9)
+            );
+            return subs.length > 0 ? (
               <div key={i} style={{ flex: 1 }}>
                 <div style={{ fontSize: 9, color: "#3a3a60", letterSpacing: 1, textTransform: "uppercase", marginBottom: 5, fontWeight: 700 }}>
                   Suplentes · {lu?.team?.name}
                 </div>
-                {subs.map(({ player: p }) => (
+                {sorted.map(({ player: p }) => (
                   <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
                     <span style={{ fontSize: 9, fontFamily: "'Space Mono',monospace", minWidth: 16, textAlign: "right",
                       color: away ? "#6a3060" : "#305070" }}>{p.number}</span>
@@ -227,8 +231,8 @@ function SinglePitch({ homeLineup, awayLineup, events }) {
                   </div>
                 ))}
               </div>
-            ) : null
-          )}
+            ) : null;
+          })}
         </div>
       )}
     </div>
