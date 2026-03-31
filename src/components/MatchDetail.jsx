@@ -70,121 +70,165 @@ function EventRow({ ev, homeTeamId }) {
   );
 }
 
-function PlayerPin({ player }) {
-  const parts = (player.name ?? "").split(" ");
-  const shortName = parts.length > 1 ? parts[parts.length - 1] : parts[0];
+function PlayerPin({ player, subIn, isAway }) {
+  const [showSub, setShowSub] = useState(false);
+
+  useEffect(() => {
+    if (!subIn) return;
+    const t = setInterval(() => setShowSub(s => !s), 5000);
+    return () => clearInterval(t);
+  }, [subIn]);
+
+  const name = showSub ? subIn : (player.name ?? "");
+  const short = name.split(" ").pop();
+  const borderColor = isAway ? "#6a3060" : "#305070";
+  const bgColor     = isAway ? "#1a1020" : "#101828";
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 40, maxWidth: 52 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 42, maxWidth: 54 }}>
       <div style={{
-        width: 30, height: 30, borderRadius: "50%",
-        background: "#111130", border: "2px solid #3a3a70",
+        width: 32, height: 32, borderRadius: "50%",
+        background: bgColor, border: `2px solid ${borderColor}`,
         display: "flex", alignItems: "center", justifyContent: "center",
         fontFamily: "'Space Mono',monospace", fontSize: 11, fontWeight: 700, color: "#f0f0f8",
-        flexShrink: 0,
+        flexShrink: 0, position: "relative",
       }}>
         {player.number}
+        {subIn && (
+          <div style={{
+            position: "absolute", bottom: -3, right: -3,
+            fontSize: 7, background: "#0f0f1c", borderRadius: "50%",
+            width: 13, height: 13, display: "flex", alignItems: "center", justifyContent: "center",
+            border: `1px solid ${showSub ? "#a066ff" : borderColor}`,
+          }}>🔄</div>
+        )}
       </div>
       <div style={{
-        fontSize: 9, color: "#e0e0f8", textAlign: "center",
+        fontSize: 9, color: showSub ? "#a066ff" : "#e0e0f8", textAlign: "center",
         maxWidth: 50, lineHeight: 1.2,
         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-        textShadow: "0 1px 3px rgba(0,0,0,0.8)",
+        textShadow: "0 1px 4px rgba(0,0,0,0.9)",
       }}>
-        {shortName}
+        {short}
       </div>
     </div>
   );
 }
 
-function PitchLineup({ team, label }) {
-  if (!team) return null;
-
-  // Agrupar titulares por fila (campo grid "fila:columna")
-  const byRow = {};
-  (team.startXI ?? []).forEach(({ player: p }) => {
-    const [r, c] = (p.grid ?? "1:1").split(":").map(Number);
-    if (!byRow[r]) byRow[r] = [];
-    byRow[r].push({ ...p, _col: c });
+function SinglePitch({ homeLineup, awayLineup, events }) {
+  const substMap = {};
+  (events ?? []).filter(ev => ev.type === "subst").forEach(ev => {
+    if (ev.player?.name && ev.assist?.name) substMap[ev.player.name] = ev.assist.name;
   });
 
-  // Filas descendentes: delanteros arriba, portero abajo
-  const rows = Object.keys(byRow).map(Number).sort((a, b) => b - a);
+  function buildRows(lineup, ascending) {
+    const byRow = {};
+    (lineup?.startXI ?? []).forEach(({ player: p }) => {
+      const [r, c] = (p.grid ?? "1:1").split(":").map(Number);
+      if (!byRow[r]) byRow[r] = [];
+      byRow[r].push({ ...p, _col: c });
+    });
+    return Object.keys(byRow).map(Number)
+      .sort(ascending ? (a, b) => a - b : (a, b) => b - a)
+      .map(row => ({ row, players: [...byRow[row]].sort((a, b) => a._col - b._col) }));
+  }
+
+  // Home arriba: GK (row 1) en el borde superior → ascendente
+  const homeRows = buildRows(homeLineup, true);
+  // Away abajo: GK (row 1) en el borde inferior → descendente (forwards cerca del centro)
+  const awayRows = buildRows(awayLineup, false);
+
+  const homeSubs = homeLineup?.substitutes ?? [];
+  const awaySubs = awayLineup?.substitutes ?? [];
 
   return (
-    <div style={{ marginBottom: 24 }}>
-      {/* Barra entrenador */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 10,
-        padding: "8px 12px",
-        background: "#080812", border: "1px solid #1a1a2a",
-        borderRadius: "10px 10px 0 0",
-      }}>
-        <div style={{ fontSize: 22, lineHeight: 1 }}>👔</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f8",
-            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {team.coach?.name ?? "–"}
+    <div style={{ padding: "0 12px 16px" }}>
+      {/* Entrenadores */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        {[homeLineup, awayLineup].map((lu, i) => !lu ? null : (
+          <div key={i} style={{
+            flex: 1, display: "flex", alignItems: "center", gap: 7,
+            padding: "7px 10px", background: "#080812",
+            border: "1px solid #1a1a2a", borderRadius: 10,
+          }}>
+            <span style={{ fontSize: 18 }}>👔</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#f0f0f8",
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {lu.coach?.name ?? "–"}
+              </div>
+              <div style={{ fontSize: 10, color: "#4040a0" }}>
+                {lu.team?.name} · <span style={{ fontFamily: "'Space Mono',monospace" }}>{lu.formation}</span>
+              </div>
+            </div>
           </div>
-          <div style={{ fontSize: 10, color: "#4040a0" }}>Entrenador · {label}</div>
-        </div>
-        <div style={{ flexShrink: 0, textAlign: "right" }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: "#f5c842", letterSpacing: 0.5 }}>{team.team?.name}</div>
-          <div style={{ fontSize: 10, color: "#5050a0", fontFamily: "'Space Mono',monospace" }}>{team.formation}</div>
-        </div>
+        ))}
       </div>
 
-      {/* Campo */}
+      {/* Campo único */}
       <div style={{
-        border: "1px solid #1a3a1a", borderTop: "none",
-        borderRadius: "0 0 10px 10px",
-        padding: "14px 6px 10px",
-        background: "#1a4020",
-        backgroundImage: [
-          "repeating-linear-gradient(180deg,transparent,transparent 28px,rgba(0,0,0,0.12) 28px,rgba(0,0,0,0.12) 56px)",
-          "linear-gradient(180deg,#1a4020 0%,#163518 100%)",
-        ].join(","),
-        position: "relative",
+        borderRadius: 12, border: "1px solid #1a3a1a",
+        background: "linear-gradient(180deg,#163a1c 0%,#1a4422 50%,#163a1c 100%)",
+        position: "relative", padding: "14px 4px",
         overflow: "hidden",
       }}>
-        {/* Línea central */}
-        <div style={{ position: "absolute", top: "50%", left: "8%", right: "8%",
-          height: 1, background: "rgba(255,255,255,0.12)" }} />
-        {/* Círculo central */}
+        {/* Decoración del campo */}
+        <div style={{ position: "absolute", inset: 8, border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", top: "50%", left: "8%", right: "8%", height: 1, background: "rgba(255,255,255,0.18)", transform: "translateY(-50%)" }} />
         <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
-          width: 50, height: 50, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.1)" }} />
+          width: 54, height: 54, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.13)" }} />
+        <div style={{ position: "absolute", top: 8, left: "24%", right: "24%", height: "15%",
+          border: "1px solid rgba(255,255,255,0.07)", borderTop: "none" }} />
+        <div style={{ position: "absolute", bottom: 8, left: "24%", right: "24%", height: "15%",
+          border: "1px solid rgba(255,255,255,0.07)", borderBottom: "none" }} />
 
-        {rows.map((row, idx) => {
-          const players = [...byRow[row]].sort((a, b) => a._col - b._col);
-          return (
-            <div key={row} style={{
-              display: "flex", justifyContent: "space-around", alignItems: "flex-start",
-              marginBottom: idx < rows.length - 1 ? 12 : 0,
-              position: "relative", zIndex: 1,
-            }}>
-              {players.map(p => <PlayerPin key={p.id} player={p} />)}
-            </div>
-          );
-        })}
+        {/* Equipo local (mitad superior) */}
+        {homeRows.map(({ row, players }, idx) => (
+          <div key={`h${row}`} style={{
+            display: "flex", justifyContent: "space-around", alignItems: "flex-start",
+            marginBottom: 10, position: "relative", zIndex: 1,
+          }}>
+            {players.map(p => <PlayerPin key={p.id} player={p} subIn={substMap[p.name]} isAway={false} />)}
+          </div>
+        ))}
+
+        {/* Nombres en la línea central */}
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 18px",
+          position: "relative", zIndex: 1, margin: "2px 0 10px" }}>
+          <span style={{ fontSize: 8, color: "rgba(255,255,255,0.18)", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{homeLineup?.team?.name}</span>
+          <span style={{ fontSize: 8, color: "rgba(255,255,255,0.18)", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{awayLineup?.team?.name}</span>
+        </div>
+
+        {/* Equipo visitante (mitad inferior) */}
+        {awayRows.map(({ row, players }, idx) => (
+          <div key={`a${row}`} style={{
+            display: "flex", justifyContent: "space-around", alignItems: "flex-start",
+            marginBottom: idx < awayRows.length - 1 ? 10 : 0, position: "relative", zIndex: 1,
+          }}>
+            {players.map(p => <PlayerPin key={p.id} player={p} subIn={substMap[p.name]} isAway={true} />)}
+          </div>
+        ))}
       </div>
 
-      {/* Suplentes */}
-      {team.substitutes?.length > 0 && (
-        <div style={{ marginTop: 10, padding: "0 4px" }}>
-          <div style={{ fontSize: 9, color: "#3a3a60", letterSpacing: 1,
-            textTransform: "uppercase", marginBottom: 5, fontWeight: 700 }}>
-            Suplentes
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "3px 12px" }}>
-            {team.substitutes.map(({ player: p }) => (
-              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ fontSize: 9, color: "#3a3a60",
-                  fontFamily: "'Space Mono',monospace", minWidth: 14, textAlign: "right" }}>
-                  {p.number}
-                </span>
-                <span style={{ fontSize: 11, color: "#5050a0" }}>{p.name}</span>
+      {/* Suplentes de ambos equipos */}
+      {(homeSubs.length > 0 || awaySubs.length > 0) && (
+        <div style={{ marginTop: 14, display: "flex", gap: 16 }}>
+          {[[homeSubs, homeLineup, false], [awaySubs, awayLineup, true]].map(([subs, lu, away], i) =>
+            subs.length > 0 ? (
+              <div key={i} style={{ flex: 1 }}>
+                <div style={{ fontSize: 9, color: "#3a3a60", letterSpacing: 1, textTransform: "uppercase", marginBottom: 5, fontWeight: 700 }}>
+                  Suplentes · {lu?.team?.name}
+                </div>
+                {subs.map(({ player: p }) => (
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
+                    <span style={{ fontSize: 9, fontFamily: "'Space Mono',monospace", minWidth: 16, textAlign: "right",
+                      color: away ? "#6a3060" : "#305070" }}>{p.number}</span>
+                    <span style={{ fontSize: 11, color: "#5060a0" }}>{p.name}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            ) : null
+          )}
         </div>
       )}
     </div>
@@ -192,9 +236,10 @@ function PitchLineup({ team, label }) {
 }
 
 export function MatchDetail({ match, resultData, flagMap, onClose }) {
-  const [data, setData]     = useState(null);
+  const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState(null);
+  const [error, setError]     = useState(null);
+  const [tab, setTab]         = useState("eventos");
 
   const apiId = resultData?.apiId;
 
@@ -217,15 +262,14 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
   const rh = resultData?.homeScore ?? "";
   const ra = resultData?.awayScore ?? "";
 
-  const homeTeamId  = data?.homeTeamId ?? null;
-  const awayTeamId  = data?.awayTeamId ?? null;
+  const homeTeamId = data?.homeTeamId ?? null;
+  const awayTeamId = data?.awayTeamId ?? null;
   const events = data?.events ?? [];
 
-  // Lineups ordenados: primero home, luego away
   const homeLineup = data?.lineups?.find(l => l.team?.id === homeTeamId) ?? data?.lineups?.[0];
   const awayLineup = data?.lineups?.find(l => l.team?.id === awayTeamId) ?? data?.lineups?.[1];
+  const hasLineups = !!(homeLineup || awayLineup);
 
-  // Swipe-down para cerrar
   const sheetRef = useRef(null);
   const touchStartY = useRef(null);
   function onTouchStart(e) { touchStartY.current = e.touches[0].clientY; }
@@ -237,28 +281,20 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
   }
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed", inset: 0, zIndex: 200,
-        background: "rgba(0,0,0,.75)", display: "flex",
-        alignItems: "flex-end", justifyContent: "center",
-      }}
-    >
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, zIndex: 200,
+      background: "rgba(0,0,0,.75)", display: "flex",
+      alignItems: "flex-end", justifyContent: "center",
+    }}>
       <div
         ref={sheetRef}
         onClick={e => e.stopPropagation()}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
         style={{
-          background: "#0f0f1c",
-          border: "1px solid #1a1a2a",
-          borderRadius: "20px 20px 0 0",
-          width: "100%",
-          maxWidth: 600,
-          maxHeight: "90vh",
-          overflowY: "auto",
-          padding: "0 0 32px",
+          background: "#0f0f1c", border: "1px solid #1a1a2a",
+          borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 600,
+          maxHeight: "90vh", overflowY: "auto", padding: "0 0 32px",
         }}
       >
         {/* Handle */}
@@ -266,11 +302,10 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
           <div style={{ width: 36, height: 4, background: "#2a2a40", borderRadius: 2 }} />
         </div>
 
-        {/* Header del partido */}
+        {/* Header */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "12px 20px 16px",
-          borderBottom: "1px solid #1a1a2a",
+          padding: "12px 20px 16px", borderBottom: "1px solid #1a1a2a",
         }}>
           <div style={{ flex: 1, textAlign: "right" }}>
             <div style={{ fontSize: 28 }}>{homeFlag}</div>
@@ -287,7 +322,7 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
             <div style={{ fontSize: 9, color: "#3030a0", letterSpacing: 1, marginTop: 4, textTransform: "uppercase" }}>
               {match.date?.slice(5).replace("-","/")} {match.timeES}h
             </div>
-            {resultData?.penaltyHome !== undefined && (
+            {resultData?.penaltyHome !== undefined && resultData.penaltyHome !== "" && (
               <div style={{ fontSize: 11, color: "#a066ff", marginTop: 2 }}>
                 Pen. {resultData.penaltyHome}–{resultData.penaltyAway}
               </div>
@@ -299,61 +334,58 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
           </div>
         </div>
 
+        {/* Tabs — solo si hay datos y alineaciones */}
+        {data && hasLineups && (
+          <div style={{ display: "flex", borderBottom: "1px solid #1a1a2a" }}>
+            {[["eventos","⚽ Eventos"], ["alineaciones","📋 Alineaciones"]].map(([key, label]) => (
+              <button key={key} onClick={() => setTab(key)} style={{
+                flex: 1, padding: "10px 0", background: "none", border: "none",
+                cursor: "pointer", fontSize: 12, fontWeight: 700, letterSpacing: 0.5,
+                color: tab === key ? "#f5c842" : "#3a3a60",
+                borderBottom: tab === key ? "2px solid #f5c842" : "2px solid transparent",
+              }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {!apiId && (
           <div style={{ padding: 24, textAlign: "center", color: "#4040a0", fontSize: 13 }}>
             Los datos de detalle estarán disponibles después de sincronizar resultados.
           </div>
         )}
-
         {apiId && loading && (
-          <div style={{ padding: 32, textAlign: "center", color: "#4040a0", fontSize: 13 }}>
-            Cargando detalles…
-          </div>
+          <div style={{ padding: 32, textAlign: "center", color: "#4040a0", fontSize: 13 }}>Cargando detalles…</div>
         )}
-
         {error && (
           <div style={{ margin: 16, padding: 12, background: "rgba(255,107,107,.1)", border: "1px solid rgba(255,107,107,.3)", borderRadius: 8, color: "#ff6b6b", fontSize: 12, textAlign: "center" }}>
             ⚠️ {error}
           </div>
         )}
 
-        {data && (
-          <>
-            {/* Timeline de eventos */}
-            <div style={{ padding: "16px 20px" }}>
-              <div style={{ fontSize: 11, color: "#4040a0", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10, fontWeight: 700 }}>
-                Eventos del partido
-              </div>
-
-              {/* Cabecera equipos */}
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: "#6060a0", fontWeight: 700 }}>{match.home}</span>
-                <span style={{ fontSize: 11, color: "#6060a0", fontWeight: 700 }}>{match.away}</span>
-              </div>
-
-              {events.length === 0 && (
-                <div style={{ textAlign: "center", color: "#3a3a60", fontSize: 12, padding: "16px 0" }}>
-                  Sin eventos disponibles
-                </div>
-              )}
-
-              {events.map((ev, i) => (
-                <EventRow key={i} ev={ev} homeTeamId={homeTeamId} />
-              ))}
+        {/* Tab: Eventos */}
+        {data && tab === "eventos" && (
+          <div style={{ padding: "16px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontSize: 11, color: "#6060a0", fontWeight: 700 }}>{match.home}</span>
+              <span style={{ fontSize: 11, color: "#6060a0", fontWeight: 700 }}>{match.away}</span>
             </div>
-
-            {/* Alineaciones */}
-            {(homeLineup || awayLineup) && (
-              <div style={{ padding: "16px 16px 0", borderTop: "1px solid #1a1a2a" }}>
-                <div style={{ fontSize: 11, color: "#4040a0", letterSpacing: 1,
-                  textTransform: "uppercase", marginBottom: 14, fontWeight: 700 }}>
-                  Alineaciones
-                </div>
-                <PitchLineup team={homeLineup} label="Local" />
-                <PitchLineup team={awayLineup} label="Visitante" />
+            {events.length === 0 ? (
+              <div style={{ textAlign: "center", color: "#3a3a60", fontSize: 12, padding: "16px 0" }}>
+                Sin eventos disponibles
               </div>
-            )}
-          </>
+            ) : events.map((ev, i) => (
+              <EventRow key={i} ev={ev} homeTeamId={homeTeamId} />
+            ))}
+          </div>
+        )}
+
+        {/* Tab: Alineaciones */}
+        {data && tab === "alineaciones" && (
+          <div style={{ paddingTop: 16 }}>
+            <SinglePitch homeLineup={homeLineup} awayLineup={awayLineup} events={events} />
+          </div>
         )}
       </div>
     </div>
