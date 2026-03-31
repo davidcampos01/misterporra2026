@@ -1,0 +1,7 @@
+# cron-worker/wrangler.toml
+name = "misterporra2026-cron"
+main = "index.js"
+compatibility_date = "2025-01-01"
+
+[triggers]
+crons = ["0 * * * *"]
