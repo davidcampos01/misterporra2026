@@ -174,11 +174,16 @@ export function SetupTab({ players, scores, standingsScores, koScores, renamePla
           setTeamOverride?.(ph, team);
         }
 
-        await onSync(results);
-        const extraMsg = Object.keys(resolvedOverrides).length
-          ? ` · ${Object.keys(resolvedOverrides).length} equipo(s) identificado(s)` : "";
-        setSyncState("ok");
-        setSyncMsg(`✓ ${matched} partidos actualizados${extraMsg}`);
+        if (matched === 0) {
+          setSyncState("error");
+          setSyncMsg("No se encontraron partidos coincidentes. Los resultados existentes no han cambiado.");
+        } else {
+          await onSync(results);
+          const extraMsg = Object.keys(resolvedOverrides).length
+            ? ` · ${Object.keys(resolvedOverrides).length} equipo(s) identificado(s)` : "";
+          setSyncState("ok");
+          setSyncMsg(`✓ ${matched} partidos actualizados${extraMsg}`);
+        }
       } else {
         setSyncState("error");
         setSyncMsg(data.error ?? `Error ${res.status}`);
