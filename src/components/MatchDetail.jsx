@@ -33,48 +33,51 @@ function EventRow({ ev, homeTeamId }) {
   const isGoal = ev.type === "Goal";
   const isSubst = ev.type === "subst";
 
-  const Cell = ({ side }) => {
-    const show = side === "home" ? isHome : !isHome;
-    const reversed = side === "home";
-    if (!show) return <div style={{ flex: "1 1 0" }} />;
-    const nameColor = isGoal ? "#f0f0f8" : "#7070a0";
-    return (
-      <div style={{ flex: "1 1 0", minWidth: 0, textAlign: reversed ? "right" : "left",
-        padding: reversed ? "0 8px 0 0" : "0 0 0 8px" }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 4,
-          flexDirection: reversed ? "row-reverse" : "row", flexWrap: "wrap",
-          justifyContent: reversed ? "flex-start" : "flex-start" }}>
-          {/* Icono del evento */}
-          <span style={{ fontSize: 13, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
-          {/* Nombre del jugador */}
-          <span style={{ fontSize: 12, color: nameColor, fontWeight: isGoal ? 700 : 400, lineHeight: 1.3 }}>
-            {playerName}
-          </span>
-          {/* Asistencia inline: nombre + 👟 */}
-          {isGoal && assistName && (
-            <>
-              <span style={{ fontSize: 11, color: "#7070a0", lineHeight: 1 }}>👟</span>
-              <span style={{ fontSize: 11, color: "#6060a0", lineHeight: 1.3 }}>{assistName}</span>
-            </>
-          )}
-          {/* Sustitución: jugador que entra */}
-          {isSubst && assistName && (
-            <span style={{ fontSize: 10, color: "#4040a0", lineHeight: 1.3 }}>↑ {assistName}</span>
-          )}
-        </div>
+  const content = (
+    <div>
+      {/* Línea 1: goleador / jugador principal */}
+      <div style={{ display: "flex", alignItems: "center", gap: 4,
+        justifyContent: isHome ? "flex-end" : "flex-start" }}>
+        {!isHome && <span style={{ fontSize: 13, lineHeight: 1 }}>{icon}</span>}
+        <span style={{ fontSize: 12, fontWeight: isGoal ? 700 : 400,
+          color: isGoal ? "#f0f0f8" : "#7070a0", lineHeight: 1.3 }}>
+          {playerName}
+        </span>
+        {isHome && <span style={{ fontSize: 13, lineHeight: 1 }}>{icon}</span>}
       </div>
-    );
-  };
+      {/* Línea 2: asistente (solo goles) */}
+      {isGoal && assistName && (
+        <div style={{ display: "flex", alignItems: "center", gap: 4,
+          justifyContent: isHome ? "flex-end" : "flex-start" }}>
+          {!isHome && <span style={{ fontSize: 11, lineHeight: 1 }}>👟</span>}
+          <span style={{ fontSize: 11, color: "#5050a0", lineHeight: 1.3 }}>{assistName}</span>
+          {isHome && <span style={{ fontSize: 11, lineHeight: 1 }}>👟</span>}
+        </div>
+      )}
+      {/* Línea 2: sustitución — jugador que entra */}
+      {isSubst && assistName && (
+        <div style={{ fontSize: 10, color: "#4040a0", lineHeight: 1.3,
+          textAlign: isHome ? "right" : "left" }}>
+          ↑ {assistName}
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <div style={{ display: "flex", alignItems: "center", minHeight: 30, padding: "2px 0" }}>
-      <Cell side="home" />
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 40px 1fr",
+      alignItems: "center", minHeight: 30, padding: "3px 0" }}>
+      {/* Columna local */}
+      <div style={{ padding: "0 8px 0 0" }}>{isHome ? content : null}</div>
+      {/* Minuto — siempre centrado */}
       <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "#5050a0",
-        width: 36, textAlign: "center", flexShrink: 0, borderLeft: "1px solid #1a1a2a",
-        borderRight: "1px solid #1a1a2a", padding: "2px 0" }}>
+        textAlign: "center", borderLeft: "1px solid #1a1a2a", borderRight: "1px solid #1a1a2a",
+        padding: "4px 0", alignSelf: "stretch", display: "flex",
+        alignItems: "center", justifyContent: "center" }}>
         {minute}'
       </div>
-      <Cell side="away" />
+      {/* Columna visitante */}
+      <div style={{ padding: "0 0 0 8px" }}>{!isHome ? content : null}</div>
     </div>
   );
 }
