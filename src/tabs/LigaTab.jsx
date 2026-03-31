@@ -30,13 +30,27 @@ async function fdoFetch(path, lsKey, isPermanent) {
       if (isPermanent || age < 3600_000) return cached.data;
     }
   }
-  const r = await fetch(`${FDO_BASE}${path}`, {
-    headers: { "X-Auth-Token": FDO_KEY ?? "" },
-  });
-  if (!r.ok) throw new Error(`API error ${r.status}`);
-  const data = await r.json();
-  if (lsKey) cacheSet(lsKey, { data, _ts: Date.now() });
-  return data;
+  // Reintentos automáticos para errores transitorios (522, 503, etc.)
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 1200 * attempt));
+    try {
+      const r = await fetch(`${FDO_BASE}${path}`, {
+        headers: { "X-Auth-Token": FDO_KEY ?? "" },
+      });
+      if (r.ok) {
+        const data = await r.json();
+        if (lsKey) cacheSet(lsKey, { data, _ts: Date.now() });
+        return data;
+      }
+      if (r.status === 429) throw new Error("Límite de peticiones alcanzado (429)");
+      lastError = new Error(`API error ${r.status}`);
+    } catch (e) {
+      if (e.message?.includes("429")) throw e; // no reintentar rate limit
+      lastError = e;
+    }
+  }
+  throw lastError;
 }
 
 const LEAGUES = [
@@ -263,7 +277,7 @@ export function LigaTab({ onBack }) {
       {/* Selector de liga */}
       <div style={{ padding: "12px 16px 4px", overflowX: "auto", display: "flex", gap: 8 }}>
         {LEAGUES.map(l => (
-          <button key={l.code} onClick={() => { setLeagueCode(l.code); setSection("standings"); }} style={{
+          <button key={l.code} onClick={() => { setLeagueCode(l.code); }} style={{
             flexShrink: 0, padding: "6px 12px", borderRadius: 20, fontSize: 12, fontWeight: leagueCode === l.code ? 800 : 400,
             background: leagueCode === l.code ? "#f5c842" : "#111120",
             color: leagueCode === l.code ? "#080811" : "#8080c0",
