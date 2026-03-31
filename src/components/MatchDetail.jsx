@@ -11,10 +11,22 @@ const EVENT_ICON = {
   subst:           "🔄",
 };
 
+const VAR_DETAIL_ES = {
+  "No Goal":            "Gol anulado",
+  "Goal cancelled":     "Gol anulado",
+  "Goal confirmed":     "Gol confirmado",
+  "Penalty confirmed":  "Penalti confirmado",
+  "No Penalty":         "Sin penalti",
+  "Penalty cancelled":  "Penalti anulado",
+  "Card upgrade":       "Tarjeta revisada",
+  "Red card":           "Tarjeta roja",
+  "Yellow card":        "Tarjeta amarilla",
+};
+
 function eventIcon(type, detail) {
   if (type === "Goal") {
-    if (detail === "Own Goal")      return "⚽💔";
-    if (detail === "Penalty")       return "🎯";
+    if (detail === "Own Goal")       return null; // se renderiza aparte en rojo
+    if (detail === "Penalty")        return "🎯";
     if (detail === "Missed Penalty") return "❌";
     return "⚽";
   }
@@ -31,28 +43,50 @@ function EventRow({ ev, homeTeamId }) {
   const playerName = ev.player?.name ?? "";
   const assistName = ev.assist?.name;
   const isGoal = ev.type === "Goal";
+  const isOwnGoal = isGoal && ev.detail === "Own Goal";
   const isSubst = ev.type === "subst";
+  const isVar = ev.type === "Var";
+  const varDetail = isVar ? (VAR_DETAIL_ES[ev.detail] ?? ev.detail ?? "") : "";
+
+  // Icono propio gol: bolón rojo
+  const ownGoalIcon = (
+    <span style={{
+      display: "inline-flex", alignItems: "center", justifyContent: "center",
+      width: 18, height: 18, borderRadius: "50%",
+      background: "#c0000a", fontSize: 11, lineHeight: 1, flexShrink: 0,
+    }}>⚽</span>
+  );
 
   const content = (
     <div>
       {/* Línea 1: goleador / jugador principal */}
       <div style={{ display: "flex", alignItems: "center", gap: 4,
         justifyContent: isHome ? "flex-end" : "flex-start" }}>
-        {!isHome && <span style={{ fontSize: 13, lineHeight: 1 }}>{icon}</span>}
+        {!isHome && (isOwnGoal ? ownGoalIcon : icon ? <span style={{ fontSize: 13, lineHeight: 1 }}>{icon}</span> : null)}
         <span style={{ fontSize: 12, fontWeight: isGoal ? 700 : 400,
           color: isGoal ? "#f0f0f8" : "#7070a0", lineHeight: 1.3 }}>
           {playerName}
         </span>
-        {isHome && <span style={{ fontSize: 13, lineHeight: 1 }}>{icon}</span>}
+        {isHome && (isOwnGoal ? ownGoalIcon : icon ? <span style={{ fontSize: 13, lineHeight: 1 }}>{icon}</span> : null)}
       </div>
-      {/* Línea 2: asistente (solo goles) */}
-      {isGoal && assistName && (
+      {/* Línea 2: propia puerta */}
+      {isOwnGoal && (
+        <div style={{ fontSize: 10, color: "#c0000a", fontWeight: 700, lineHeight: 1.3,
+          textAlign: isHome ? "right" : "left" }}>Gol en propia puerta</div>
+      )}
+      {/* Línea 2: asistente (goles normales) */}
+      {isGoal && !isOwnGoal && assistName && (
         <div style={{ display: "flex", alignItems: "center", gap: 4,
           justifyContent: isHome ? "flex-end" : "flex-start" }}>
           {!isHome && <span style={{ fontSize: 11, lineHeight: 1 }}>👟</span>}
           <span style={{ fontSize: 11, color: "#5050a0", lineHeight: 1.3 }}>{assistName}</span>
           {isHome && <span style={{ fontSize: 11, lineHeight: 1 }}>👟</span>}
         </div>
+      )}
+      {/* Línea 2: motivo VAR */}
+      {isVar && varDetail && (
+        <div style={{ fontSize: 10, color: "#4cc9f0", lineHeight: 1.3,
+          textAlign: isHome ? "right" : "left" }}>{varDetail}</div>
       )}
       {/* Línea 2: sustitución — jugador que entra */}
       {isSubst && assistName && (
@@ -161,21 +195,21 @@ function SinglePitch({ homeLineup, awayLineup, events }) {
     if (ev.player?.name && ev.assist?.name) substMap[ev.player.name] = ev.assist.name;
   });
 
-  // Stats por jugador: goles, asistencias, tarjeta
-  const playerStats = {};
-  const getStat = n => {
-    if (!n) return null;
-    if (!playerStats[n]) playerStats[n] = { goals: 0, assists: 0, card: null };
-    return playerStats[n];
+  // Stats por jugador usando ID (los nombres de eventos y lineups pueden diferir)
+  const playerStatsById = {};
+  const getStatById = id => {
+    if (!id) return null;
+    if (!playerStatsById[id]) playerStatsById[id] = { goals: 0, assists: 0, card: null };
+    return playerStatsById[id];
   };
   (events ?? []).forEach(ev => {
-    const p = ev.player?.name, a = ev.assist?.name;
+    const pid = ev.player?.id, aid = ev.assist?.id;
     if (ev.type === "Goal" && ev.detail !== "Missed Penalty") {
-      if (ev.detail !== "Own Goal" && p) getStat(p).goals++;
-      if (a) getStat(a).assists++;
+      if (ev.detail !== "Own Goal" && pid) getStatById(pid).goals++;
+      if (aid) getStatById(aid).assists++;
     }
-    if (ev.type === "Card" && p) {
-      const s = getStat(p);
+    if (ev.type === "Card" && pid) {
+      const s = getStatById(pid);
       if (ev.detail === "Red Card" || ev.detail === "Yellow Red Card") s.card = "red";
       else if (!s.card) s.card = "yellow";
     }
@@ -257,7 +291,7 @@ function SinglePitch({ homeLineup, awayLineup, events }) {
             display: "flex", justifyContent: "space-around", alignItems: "flex-start",
             marginBottom: 14, position: "relative", zIndex: 1,
           }}>
-            {players.map(p => <PlayerPin key={p.id} player={p} subIn={substMap[p.name]} isAway={false} stats={playerStats[p.name]} />)}
+            {players.map(p => <PlayerPin key={p.id} player={p} subIn={substMap[p.name]} isAway={false} stats={playerStatsById[p.id]} />)}
           </div>
         ))}
 
@@ -270,7 +304,7 @@ function SinglePitch({ homeLineup, awayLineup, events }) {
             display: "flex", justifyContent: "space-around", alignItems: "flex-start",
             marginBottom: idx < awayRows.length - 1 ? 14 : 0, position: "relative", zIndex: 1,
           }}>
-            {players.map(p => <PlayerPin key={p.id} player={p} subIn={substMap[p.name]} isAway={true} stats={playerStats[p.name]} />)}
+            {players.map(p => <PlayerPin key={p.id} player={p} subIn={substMap[p.name]} isAway={true} stats={playerStatsById[p.id]} />)}
           </div>
         ))}
       </div>
@@ -319,6 +353,10 @@ function EventSection({ title, icon, events, homeTeamId, accent }) {
   );
 }
 
+// Caché en memoria por apiId — persiste durante la sesión del navegador
+// Los partidos acabados no cambian, así que no hay riesgo de datos obsoletos
+const detailCache = {};
+
 export function MatchDetail({ match, resultData, flagMap, onClose }) {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(false);
@@ -329,13 +367,22 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
 
   useEffect(() => {
     if (!apiId) return;
+    // Si ya tenemos los datos en caché, los usamos directamente sin llamar a la API
+    if (detailCache[apiId]) {
+      setData(detailCache[apiId]);
+      return;
+    }
     setLoading(true);
     setError(null);
     fetch(`/api/match-detail?fixtureApiId=${apiId}`)
       .then(r => r.json())
       .then(d => {
-        if (d.ok) setData(d);
-        else setError(d.error ?? "Error desconocido");
+        if (d.ok) {
+          detailCache[apiId] = d; // guardar en caché
+          setData(d);
+        } else {
+          setError(d.error ?? "Error desconocido");
+        }
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));

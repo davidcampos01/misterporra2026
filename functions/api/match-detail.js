@@ -36,10 +36,16 @@ export async function onRequest({ request, env }) {
     const fix = fixtureData.response?.[0];
     const homeTeamId = fix?.teams?.home?.id ?? null;
     const awayTeamId = fix?.teams?.away?.id ?? null;
+    const events = eventsData.response ?? [];
+
+    // No cachear si no hay eventos (partido recién terminado, datos aún no listos)
+    const cacheHeader = events.length > 0
+      ? "s-maxage=300, stale-while-revalidate=600"
+      : "s-maxage=30, stale-while-revalidate=60";
 
     return new Response(
-      JSON.stringify({ ok: true, homeTeamId, awayTeamId, events: eventsData.response ?? [], lineups: lineupsData.response ?? [] }),
-      { headers: { "Content-Type": "application/json", "Cache-Control": "s-maxage=300, stale-while-revalidate=600" } }
+      JSON.stringify({ ok: true, homeTeamId, awayTeamId, events, lineups: lineupsData.response ?? [] }),
+      { headers: { "Content-Type": "application/json", "Cache-Control": cacheHeader } }
     );
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
