@@ -56,17 +56,18 @@ export async function onRequest({ request, env }) {
     }
 
     const apiUrl = `https://v3.football.api-sports.io/fixtures?league=${config.leagueId}&season=${config.season}&status=FT-AET-PEN`;
-    const apiRes = await fetch(apiUrl, {
-      headers: { "x-apisports-key": env.API_FOOTBALL_KEY },
-    });
-    if (!apiRes.ok) {
-      return Response.json({ error: `API-Football respondió con ${apiRes.status}` }, { status: 502 });
-    }
-    const apiData = await apiRes.json();
 
-    if (apiData.errors && Object.keys(apiData.errors).length > 0) {
-      return Response.json({ error: "API-Football error", details: apiData.errors }, { status: 502 });
+    async function tryFetch(key) {
+      const r = await fetch(apiUrl, { headers: { "x-apisports-key": key } });
+      if (!r.ok) return null;
+      const d = await r.json();
+      if (d.errors?.requests || d.errors?.token) return null;
+      return d;
     }
+
+    let apiData = await tryFetch(env.API_FOOTBALL_KEY);
+    if (!apiData && env.API_FOOTBALL_KEY_2) apiData = await tryFetch(env.API_FOOTBALL_KEY_2);
+    if (!apiData) return Response.json({ error: "Límite de peticiones alcanzado" }, { status: 429 });
 
     const scores = [];
     for (const fix of apiData.response ?? []) {

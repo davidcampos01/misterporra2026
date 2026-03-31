@@ -117,22 +117,25 @@ async function firestoreRead(docPath) {
 }
 
 // Lógica principal exportada también para uso desde el cron-worker
-export async function runCronSync(tournamentId, apiFootballKey) {
+export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2) {
   const config = LEAGUE_CONFIG[tournamentId];
   if (!config) throw new Error(`Torneo desconocido: ${tournamentId}`);
 
   const teamOverrides = await firestoreRead(`game/${tournamentId}`);
 
   const apiUrl = `https://v3.football.api-sports.io/fixtures?league=${config.leagueId}&season=${config.season}&status=FT-AET-PEN`;
-  const apiRes = await fetch(apiUrl, {
-    headers: { "x-apisports-key": apiFootballKey },
-  });
-  if (!apiRes.ok) throw new Error(`API-Football ${apiRes.status}`);
 
-  const apiData = await apiRes.json();
-  if (apiData.errors && Object.keys(apiData.errors).length > 0) {
-    throw new Error(`API-Football error: ${JSON.stringify(apiData.errors)}`);
+  async function tryFetch(key) {
+    const r = await fetch(apiUrl, { headers: { "x-apisports-key": key } });
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (d.errors?.requests || d.errors?.token) return null;
+    return d;
   }
+
+  let apiData = await tryFetch(apiFootballKey);
+  if (!apiData && apiFootballKey2) apiData = await tryFetch(apiFootballKey2);
+  if (!apiData) throw new Error("Límite de peticiones alcanzado en ambas claves");
 
   const scoreByTeams = {};
   for (const fix of apiData.response ?? []) {
@@ -233,7 +236,7 @@ export async function onRequest({ request, env }) {
 
   const tournamentId = url.searchParams.get("tournament") ?? "mundial2026";
   try {
-    const result = await runCronSync(tournamentId, env.API_FOOTBALL_KEY);
+    const result = await runCronSync(tournamentId, env.API_FOOTBALL_KEY, env.API_FOOTBALL_KEY_2);
     return Response.json({ ok: true, ...result });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
