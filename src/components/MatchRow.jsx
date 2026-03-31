@@ -47,10 +47,17 @@ export function MatchRow({ match, resultData, onResultChange, predictions, playe
         </div>
 
         {mode === "results" ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-            <ScoreInput value={rh} onChange={v => onResultChange("homeScore", v)} />
-            <span style={{ color: "#2a2a40", fontWeight: 800, fontSize: 14 }}>–</span>
-            <ScoreInput value={ra} onChange={v => onResultChange("awayScore", v)} />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <ScoreInput value={rh} onChange={v => onResultChange("homeScore", v)} />
+              <span style={{ color: "#2a2a40", fontWeight: 800, fontSize: 14 }}>–</span>
+              <ScoreInput value={ra} onChange={v => onResultChange("awayScore", v)} />
+            </div>
+            {resultData?.penaltyHome !== undefined && resultData.penaltyHome !== "" && (
+              <div style={{ fontSize: 10, color: "#a066ff", fontFamily: "'Space Mono',monospace", letterSpacing: 0.5 }}>
+                pen. {resultData.penaltyHome}–{resultData.penaltyAway}
+              </div>
+            )}
           </div>
         ) : (
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
