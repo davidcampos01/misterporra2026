@@ -70,7 +70,7 @@ function EventRow({ ev, homeTeamId }) {
   );
 }
 
-function PlayerPin({ player, subIn, isAway }) {
+function PlayerPin({ player, subIn, isAway, stats }) {
   const [showSub, setShowSub] = useState(false);
 
   useEffect(() => {
