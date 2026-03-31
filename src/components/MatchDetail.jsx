@@ -378,7 +378,10 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
       .then(r => r.json())
       .then(d => {
         if (d.ok) {
-          detailCache[apiId] = d; // guardar en caché
+          // Solo cachear si hay datos útiles; evita cachear respuestas vacías por límite de API
+          if (d.events?.length > 0 || d.lineups?.length > 0) {
+            detailCache[apiId] = d;
+          }
           setData(d);
         } else {
           setError(d.error ?? "Error desconocido");
