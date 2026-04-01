@@ -49,7 +49,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
   const [tab, setTab] = useState("calendario");
   const [activePlayerIdx, setActivePlayerIdx] = useState(0);
 
-  const baseFixtures = tournament.fixtures;
+  const baseFixtures = (gameState?.fixtures?.length ? gameState.fixtures : null) ?? tournament.fixtures;
   const baseGroups = tournament.groups;
 
   const { gameState, fbError, setResult, setResults, setPred, addPlayer, removePlayer, renamePlayer, setTeamOverride } = useGameState(tournamentId);

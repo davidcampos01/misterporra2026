@@ -1,4 +1,3 @@
-import { FIXTURES }          from "../constants/fixtures";
 import { GROUPS_DATA }        from "../constants/groups";
 import { EURO2024_FIXTURES }  from "../constants/euro2024Fixtures";
 import { EURO2024_GROUPS }    from "../constants/euro2024Groups";
@@ -27,7 +26,7 @@ export const TOURNAMENTS = {
     accentLight:  "rgba(245,200,66,.15)",
     apiLeagueId:  1,
     apiSeason:    2026,
-    fixtures:     FIXTURES,
+    fixtures:     [],   // se carga dinámicamente desde Firestore (cron-sync los guarda)
     groups:       GROUPS_DATA,
     hasThirdPlace: true,
     numBest3rds:   8,   // 8 de los 12 terceros clasificados

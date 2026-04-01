@@ -105,7 +105,7 @@ async function firestoreRead(docPath) {
     `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/${docPath}` +
     `?key=${FIREBASE_API_KEY}`;
   const r = await fetch(url);
-  if (!r.ok) return null;
+  if (!r.ok) return {};
   const data = await r.json();
   function fromFsVal(v) {
     if (v.nullValue    !== undefined) return null;
@@ -113,6 +113,7 @@ async function firestoreRead(docPath) {
     if (v.integerValue !== undefined) return Number(v.integerValue);
     if (v.doubleValue  !== undefined) return v.doubleValue;
     if (v.stringValue  !== undefined) return v.stringValue;
+    if (v.arrayValue)  return (v.arrayValue.values ?? []).map(fromFsVal);
     if (v.mapValue) {
       return Object.fromEntries(
         Object.entries(v.mapValue.fields ?? {}).map(([k, val]) => [k, fromFsVal(val)])
@@ -121,7 +122,27 @@ async function firestoreRead(docPath) {
     return null;
   }
   const fields = data.fields ?? {};
-  return fields.teamOverrides ? fromFsVal(fields.teamOverrides) : {};
+  return {
+    teamOverrides: fields.teamOverrides ? fromFsVal(fields.teamOverrides) : {},
+    fixtures:      fields.fixtures      ? fromFsVal(fields.fixtures)      : null,
+  };
+}
+
+// Convierte utcDate de FDO a fecha y hora en España (UTC+2 en verano)
+function fdoMatchToFixture(m) {
+  const dt = new Date(m.utcDate);
+  // España verano = UTC+2 (junio-julio)
+  const offsetMs = 2 * 60 * 60 * 1000;
+  const localMs = dt.getTime() + offsetMs;
+  const local = new Date(localMs);
+  const date = local.toISOString().slice(0, 10);
+  const hh = String(local.getUTCHours()).padStart(2, "0");
+  const mm = String(local.getUTCMinutes()).padStart(2, "0");
+  const timeES = `${hh}:${mm}`;
+  const group = m.group ? m.group.replace("GROUP_", "") : null;
+  const home = m.homeTeam?.name ? (TEAM_MAP[m.homeTeam.name] ?? m.homeTeam.name) : "TBD";
+  const away = m.awayTeam?.name ? (TEAM_MAP[m.awayTeam.name] ?? m.awayTeam.name) : "TBD";
+  return { id: m.id, date, timeES, group, home, away, matchday: m.matchday ?? null, stage: m.stage ?? null };
 }
 
 // Lógica principal exportada también para uso desde el cron-worker
@@ -131,11 +152,15 @@ export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2,
 
   if (!footballDataKey && !apiFootballKey) throw new Error("Falta FOOTBALL_DATA_KEY o API_FOOTBALL_KEY");
 
-  const teamOverrides = await firestoreRead(`game/${tournamentId}`);
+  const docData = await firestoreRead(`game/${tournamentId}`);
+  const teamOverrides = docData.teamOverrides ?? {};
+  const existingFixtures = docData.fixtures ?? null;
+
   const scoreByTeams  = {};
 
   // ── Fuente primaria: football-data.org (sin límite, acceso a WC 2026 gratis) ──
   let fdoReachable = false;
+  let allFdoMatches = null; // todos los partidos, para fixtures + overrides
   if (footballDataKey && config.fdoCode) {
     try {
       const fdoUrl = `https://api.football-data.org/v4/competitions/${config.fdoCode}/matches?status=FINISHED&season=${config.season}`;
@@ -225,6 +250,7 @@ export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2,
   const newOverrides = {};
 
   // Detectar qué placeholders siguen sin resolver
+  // Para los overrides usa allFdoMatches si ya los tenemos (evita segunda llamada a FDO)
   const pendingPlaceholders = config.fixtures
     .filter(f => f.home.endsWith("*") || f.away.endsWith("*"))
     .filter(f => {
@@ -232,15 +258,18 @@ export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2,
       return !teamOverrides?.[ph];
     });
 
-  if (pendingPlaceholders.length > 0 && footballDataKey && config.fdoCode) {
-    // Pedir TODOS los partidos del torneo (incluyendo programados) via FDO
-    // para detectar qué equipo ocupa cada plaza playoff
-    try {
-      const fdoAllUrl = `https://api.football-data.org/v4/competitions/${config.fdoCode}/matches?season=${config.season}`;
-      const ra = await fetch(fdoAllUrl, { headers: { "X-Auth-Token": footballDataKey } });
-      if (ra.ok) {
-        const da = await ra.json();
-        const allMatches = da.matches ?? [];
+  if (pendingPlaceholders.length > 0 && (allFdoMatches || (footballDataKey && config.fdoCode))) {
+    // Usar allFdoMatches ya cargados, o pedir si no
+    let matchList = allFdoMatches;
+    if (!matchList) {
+      try {
+        const fdoAllUrl = `https://api.football-data.org/v4/competitions/${config.fdoCode}/matches?season=${config.season}`;
+        const ra = await fetch(fdoAllUrl, { headers: { "X-Auth-Token": footballDataKey } });
+        if (ra.ok) matchList = (await ra.json()).matches ?? [];
+      } catch (_) {}
+    }
+    if (matchList) {
+        const allMatches = matchList;
         console.log(`[overrides] FDO total matches: ${allMatches.length}`);
 
         const allTeamsByMatch = {};
@@ -277,8 +306,36 @@ export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2,
           }
         }
       }
+    }
+  }
+
+  // ── Sync de fixtures: FDO → Firestore si cambia algún equipo ──
+  let fixturesWritten = false;
+  if (fdoReachable && config.fdoCode) {
+    try {
+      const fdoAllUrl = `https://api.football-data.org/v4/competitions/${config.fdoCode}/matches?season=${config.season}`;
+      const rAll = await fetch(fdoAllUrl, { headers: { "X-Auth-Token": footballDataKey } });
+      if (rAll.ok) {
+        const dAll = await rAll.json();
+        allFdoMatches = dAll.matches ?? [];
+        const newFixtures = allFdoMatches.map(fdoMatchToFixture);
+        // Comparar con los existentes: solo guardar si cambió algún equipo o el número de partidos
+        const changed = !existingFixtures ||
+          existingFixtures.length !== newFixtures.length ||
+          newFixtures.some((nf, i) => {
+            const ef = existingFixtures[i];
+            return !ef || ef.home !== nf.home || ef.away !== nf.away;
+          });
+        if (changed) {
+          await firestoreWrite(`game/${tournamentId}`, "fixtures", newFixtures);
+          fixturesWritten = true;
+          console.log(`[fixtures] guardados ${newFixtures.length} partidos en Firestore`);
+        } else {
+          console.log(`[fixtures] sin cambios, no se sobreescribe`);
+        }
+      }
     } catch (e) {
-      console.log(`[overrides] FDO error: ${e.message}`);
+      console.log(`[fixtures] error: ${e.message}`);
     }
   }
 
@@ -290,7 +347,7 @@ export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2,
     overridesWritten = Object.keys(newOverrides).length;
   }
 
-  return { matched, total: Object.keys(scoreByTeams).length, overridesWritten };
+  return { matched, total: Object.keys(scoreByTeams).length, overridesWritten, fixturesWritten };
 }
 
 export async function onRequest({ request, env }) {
