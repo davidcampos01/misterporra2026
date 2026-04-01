@@ -49,9 +49,12 @@ export async function onRequest({ request, env }) {
     const awayTeamId   = fix?.teams?.away?.id   ?? null;
     const homeTeamName = fix?.teams?.home?.name ?? null;
     const events = eventsData.response ?? [];
+    const isFinished   = ["FT","AET","PEN"].includes(fix?.fixture?.status?.short);
 
-    const cacheHeader = events.length > 0
-      ? "s-maxage=300, stale-while-revalidate=600"
+    // Partidos terminados: cache de 1 año en CDN de Cloudflare → todos los dispositivos comparten la misma respuesta cacheada
+    // Partidos con datos vacíos o en juego: cache corta para reintentar pronto
+    const cacheHeader = (isFinished && events.length > 0)
+      ? "public, s-maxage=31536000, max-age=31536000, immutable"
       : "s-maxage=30, stale-while-revalidate=60";
 
     return new Response(

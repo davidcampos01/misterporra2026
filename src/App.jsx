@@ -12,7 +12,6 @@ import { GruposTab } from "./tabs/GruposTab";
 import { PronosticosTab } from "./tabs/PronosticosTab";
 import { MarcadorTab } from "./tabs/MarcadorTab";
 import { EliminatoriaTab } from "./tabs/EliminatoriaTab";
-import { LigaTab } from "./tabs/LigaTab";
 
 const TABS = [
   { id: "setup",          emoji: "⚙️",  label: "Setup"    },
@@ -41,16 +40,6 @@ function TournamentSelector({ onSelect }) {
             </div>
           </button>
         ))}
-        <div style={{ borderTop: "1px solid #1a1a2a", marginTop: 4, paddingTop: 16 }}>
-          <div style={{ color: "#4040a0", fontSize: 10, letterSpacing: 3, textTransform: "uppercase", marginBottom: 10 }}>Resultados</div>
-          <button onClick={() => onSelect("liga")} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", background: "#111120", border: "1px solid #22c55e44", borderRadius: 14, cursor: "pointer", color: "#f0f0f8", textAlign: "left", width: "100%" }}>
-            <span style={{ fontSize: 32 }}>⚽</span>
-            <div>
-              <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 16, letterSpacing: 2, color: "#22c55e" }}>LIGA</div>
-              <div style={{ fontSize: 11, color: "#4040a0", marginTop: 2 }}>Clasificaciones y resultados</div>
-            </div>
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -324,15 +313,10 @@ function App() {
 
   const tournament = tournamentId ? TOURNAMENTS[tournamentId] : null;
 
-  // Modo Liga: visor de clasificaciones (no guarda en localStorage)
-  if (tournamentId === "liga") {
-    return <LigaTab onBack={() => setTournamentId(null)} />;
-  }
-
   if (!tournamentId || !tournament) {
     return (
       <TournamentSelector onSelect={id => {
-        if (id !== "liga") localStorage.setItem("misterporra_tournament", id);
+        localStorage.setItem("misterporra_tournament", id);
         setTournamentId(id);
       }} />
     );
