@@ -179,27 +179,82 @@ export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2)
   }
 
   const newOverrides = {};
-  for (const fix of config.fixtures) {
-    const homeIsPending = fix.home.endsWith("*");
-    const awayIsPending = fix.away.endsWith("*");
-    if (!homeIsPending && !awayIsPending) continue;
-    const placeholder = homeIsPending ? fix.home : fix.away;
-    const anchor      = homeIsPending ? fix.away : fix.home;
-    if (teamOverrides?.[placeholder] || newOverrides[placeholder]) continue;
-    const knownOpponents = new Set(
-      config.fixtures
-        .filter(f2 => f2.group === fix.group && f2.id !== fix.id)
-        .flatMap(f2 => [f2.home, f2.away])
-        .filter(t => !t.endsWith("*") && t !== anchor)
+
+  // Detectar qué placeholders siguen sin resolver
+  const pendingPlaceholders = config.fixtures
+    .filter(f => f.home.endsWith("*") || f.away.endsWith("*"))
+    .filter(f => {
+      const ph = f.home.endsWith("*") ? f.home : f.away;
+      return !teamOverrides?.[ph];
+    });
+
+  if (pendingPlaceholders.length > 0) {
+    // Consultar todos los fixtures del torneo (sin filtro de estado) para leer
+    // qué selección ocupa cada plaza playoff aunque el partido no se haya jugado aún
+    const allUrl = `https://v3.football.api-sports.io/fixtures?league=${config.leagueId}&season=${config.season}`;
+    let allFixtures = null;
+    try {
+      const ra = await fetch(allUrl, { headers: { "x-apisports-key": apiFootballKey } });
+      if (ra.ok) {
+        const da = await ra.json();
+        if (!da.errors?.requests && !da.errors?.token) allFixtures = da.response ?? [];
+      }
+    } catch (_) {}
+    if (!allFixtures && apiFootballKey2) {
+      try {
+        const ra = await fetch(allUrl, { headers: { "x-apisports-key": apiFootballKey2 } });
+        if (ra.ok) {
+          const da = await ra.json();
+          if (!da.errors?.requests && !da.errors?.token) allFixtures = da.response ?? [];
+        }
+      } catch (_) {}
+    }
+
+    console.log(`[overrides] allFixtures count: ${allFixtures?.length ?? "null"}`);
+    if (allFixtures?.length > 0) {
+      // Log primeros 10 equipos para ver qué nombres usa la API
+      const sampleTeams = allFixtures.slice(0, 10).flatMap(f => [f.teams.home.name, f.teams.away.name]);
+      console.log(`[overrides] sample team names from API: ${JSON.stringify([...new Set(sampleTeams)])}`);
+    }
+
+    // Construir mapa de todos los partidos conocidos (incluyendo aún no jugados)
+    const allTeamsByMatch = {};
+    for (const fix of allFixtures ?? []) {
+      const h = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
+      const a = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
+      allTeamsByMatch[`${h}|${a}`] = true;
+      allTeamsByMatch[`${a}|${h}`] = true;
+    }
+    // Conjunto de todos los equipos confirmados en el torneo
+    const allConfirmedTeams = new Set(
+      (allFixtures ?? []).flatMap(fix => [
+        TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name,
+        TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name,
+      ])
     );
-    for (const [key] of Object.entries(scoreByTeams)) {
-      const [h, a] = key.split("|");
-      let realName = null;
-      if (h === anchor && !knownOpponents.has(a)) realName = a;
-      else if (a === anchor && !knownOpponents.has(h)) realName = h;
-      if (realName) {
-        newOverrides[placeholder] = { name: realName, flag: FLAG_MAP[realName] ?? "🏳️" };
-        break;
+    console.log(`[overrides] allConfirmedTeams (mapped): ${JSON.stringify([...allConfirmedTeams])}`);
+
+    for (const fix of pendingPlaceholders) {
+      const homeIsPending = fix.home.endsWith("*");
+      const placeholder   = homeIsPending ? fix.home : fix.away;
+      const anchor        = homeIsPending ? fix.away : fix.home;
+      console.log(`[overrides] searching for placeholder="${placeholder}" anchor="${anchor}"`);
+      if (newOverrides[placeholder]) continue;
+      // Equipos ya conocidos del mismo grupo (no son la incógnita)
+      const knownInGroup = new Set(
+        config.fixtures
+          .filter(f2 => f2.group === fix.group && f2.id !== fix.id)
+          .flatMap(f2 => [f2.home, f2.away])
+          .filter(t => !t.endsWith("*") && t !== anchor)
+          .map(t => teamOverrides?.[t]?.name ?? t)
+      );
+      // Buscar en allConfirmedTeams: equipo que jugó contra anchor y no está en knownInGroup
+      for (const team of allConfirmedTeams) {
+        if (team === anchor || knownInGroup.has(team)) continue;
+        if (allTeamsByMatch[`${anchor}|${team}`] || allTeamsByMatch[`${team}|${anchor}`]) {
+          newOverrides[placeholder] = { name: team, flag: FLAG_MAP[team] ?? "🏳️" };
+          break;
+        }
       }
     }
   }
