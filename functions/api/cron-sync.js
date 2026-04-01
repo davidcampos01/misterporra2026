@@ -66,7 +66,7 @@ const FLAG_MAP = {
   "Islas Salomón": "🇸🇧", "Baréin": "🇧🇭", "Irak": "🇮🇶",
   "Indonesia": "🇮🇩", "Tailandia": "🇹🇭",
   "Perú": "🇵🇪", "Bolivia": "🇧🇴", "Venezuela": "🇻🇪", "Chile": "🇨🇱",
-  "Papúa Nueva Guinea": "🇵🇬",
+  "Papúa Nueva Guinea": "🇵🇬", "RD Congo": "🇨🇩",
 };
 
 const LEAGUE_CONFIG = {
