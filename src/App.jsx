@@ -72,13 +72,21 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
   const teamOverrides = gameState?.teamOverrides ?? {};
 
   const fixtures = useMemo(() => {
-    if (!Object.keys(teamOverrides).length) return baseFixtures;
-    return baseFixtures.map(f => ({
-      ...f,
-      home: teamOverrides[f.home]?.name ?? f.home,
-      away: teamOverrides[f.away]?.name ?? f.away,
-    }));
-  }, [baseFixtures, teamOverrides]);
+    // Mapa grupo → placeholder para sustituir "TBD" de Firestore por el nombre real del placeholder
+    // (FDO guarda null para equipos aún sin confirmar → cron los almacena como "TBD")
+    const tdbByGroup = {};
+    Object.entries(baseGroups).forEach(([g, gd]) => {
+      gd.teams.forEach(t => { if (t.pending && !tdbByGroup[g]) tdbByGroup[g] = t.name; });
+    });
+
+    return baseFixtures.map(f => {
+      let home = (f.home === "TBD" && f.group && tdbByGroup[f.group]) ? tdbByGroup[f.group] : f.home;
+      let away = (f.away === "TBD" && f.group && tdbByGroup[f.group]) ? tdbByGroup[f.group] : f.away;
+      home = teamOverrides[home]?.name ?? home;
+      away = teamOverrides[away]?.name ?? away;
+      return { ...f, home, away };
+    });
+  }, [baseFixtures, teamOverrides, baseGroups]);
 
   const groups = useMemo(() => {
     if (!Object.keys(teamOverrides).length) return baseGroups;
