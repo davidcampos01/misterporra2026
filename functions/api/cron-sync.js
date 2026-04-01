@@ -26,10 +26,10 @@ const TEAM_MAP = {
   "South Africa": "Sudáfrica", "Ecuador": "Ecuador",
   "Norway": "Noruega", "Algeria": "Argelia", "Jordan": "Jordania",
   "Colombia": "Colombia", "Uzbekistan": "Uzbekistán",
-  "Cape Verde": "Cabo Verde", "Ivory Coast": "Costa de Marfil", "Cote d'Ivoire": "Costa de Marfil",
+  "Cape Verde": "Cabo Verde", "Ivory Coast": "Costa de Marfil", "Cote d'Ivoire": "Costa de Marfil", "Côte d'Ivoire": "Costa de Marfil",
   "New Zealand": "Nueva Zelanda", "Tunisia": "Túnez", "Egypt": "Egipto",
   "Paraguay": "Paraguay", "Uruguay": "Uruguay", "Ghana": "Ghana",
-  "Panama": "Panamá", "Haiti": "Haití", "Curacao": "Curazao", "Qatar": "Qatar",
+  "Panama": "Panamá", "Haiti": "Haití", "Curacao": "Curazao", "Curaçao": "Curazao", "Qatar": "Qatar",
   "Greece": "Grecia", "Iceland": "Islandia", "Wales": "Gales",
   "Bosnia and Herzegovina": "Bosnia", "Bosnia Herzegovina": "Bosnia", "Bosnia": "Bosnia",
   "Israel": "Israel", "Finland": "Finlandia", "Montenegro": "Montenegro",
@@ -43,6 +43,13 @@ const TEAM_MAP = {
   "Indonesia": "Indonesia", "Thailand": "Tailandia",
   "Peru": "Perú", "Bolivia": "Bolivia", "Venezuela": "Venezuela", "Chile": "Chile",
   "Papua New Guinea": "Papúa Nueva Guinea",
+  // Variantes específicas de football-data.org
+  "Korea Republic": "Corea del Sur", "Republic of Korea": "Corea del Sur",
+  "DR Congo": "RD Congo", "Congo DR": "RD Congo",
+  "Czechia": "Chequia", "Czech Republic": "Chequia",
+  "United Arab Emirates": "Emiratos Árabes Unidos", "UAE": "Emiratos Árabes Unidos",
+  "Kyrgyzstan": "Kirguistán", "Tajikistan": "Tayikistán",
+  "Türkiye": "Turquía", "Turkey": "Turquía",
 };
 
 const FLAG_MAP = {
@@ -63,8 +70,8 @@ const FLAG_MAP = {
 };
 
 const LEAGUE_CONFIG = {
-  euro2024:    { leagueId: 4,  season: 2024, fixtures: EURO2024_FIXTURES },
-  mundial2026: { leagueId: 1,  season: 2026, fixtures: FIXTURES },
+  euro2024:    { leagueId: 4,  season: 2024, fdoCode: "EC", fixtures: EURO2024_FIXTURES },
+  mundial2026: { leagueId: 1,  season: 2026, fdoCode: "WC", fixtures: FIXTURES },
 };
 
 function fsVal(v) {
@@ -117,40 +124,72 @@ async function firestoreRead(docPath) {
 }
 
 // Lógica principal exportada también para uso desde el cron-worker
-export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2) {
+export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2, footballDataKey) {
   const config = LEAGUE_CONFIG[tournamentId];
   if (!config) throw new Error(`Torneo desconocido: ${tournamentId}`);
 
+  if (!footballDataKey && !apiFootballKey) throw new Error("Falta FOOTBALL_DATA_KEY o API_FOOTBALL_KEY");
+
   const teamOverrides = await firestoreRead(`game/${tournamentId}`);
+  const scoreByTeams  = {};
 
-  if (!apiFootballKey) throw new Error("Falta API_FOOTBALL_KEY");
+  // ── Fuente primaria: football-data.org (sin límite, acceso a WC 2026 gratis) ──
+  let usedFdo = false;
+  if (footballDataKey && config.fdoCode) {
+    try {
+      const fdoUrl = `https://api.football-data.org/v4/competitions/${config.fdoCode}/matches?status=FINISHED&season=${config.season}`;
+      const r = await fetch(fdoUrl, { headers: { "X-Auth-Token": footballDataKey } });
+      if (r.ok) {
+        const d = await r.json();
+        for (const m of d.matches ?? []) {
+          const home = TEAM_MAP[m.homeTeam.name] ?? m.homeTeam.name;
+          const away = TEAM_MAP[m.awayTeam.name] ?? m.awayTeam.name;
+          const fh = m.score.fullTime.home, fa = m.score.fullTime.away;
+          if (fh === null || fa === null) continue;
+          const entry = { home, away, homeScore: String(fh), awayScore: String(fa) };
+          const ph = m.score.penalties?.home, pa = m.score.penalties?.away;
+          if (ph != null && pa != null) { entry.penaltyHome = String(ph); entry.penaltyAway = String(pa); }
+          scoreByTeams[`${home}|${away}`] = entry;
+        }
+        usedFdo = Object.keys(scoreByTeams).length > 0;
+      }
+    } catch (_) {}
+  }
 
-  const apfUrl = `https://v3.football.api-sports.io/fixtures?league=${config.leagueId}&season=${config.season}&status=FT-AET-PEN`;
-  const tryFetch = async (key) => {
-    const r = await fetch(apfUrl, { headers: { "x-apisports-key": key } });
-    if (!r.ok) return null;
-    const d = await r.json();
-    if (d.errors?.requests || d.errors?.token) return null;
-    return d;
-  };
-  let apfData = await tryFetch(apiFootballKey);
-  if (!apfData && apiFootballKey2) apfData = await tryFetch(apiFootballKey2);
-  if (!apfData) throw new Error("Límite de peticiones alcanzado en API-Football");
-
-  const scoreByTeams = {};
-  for (const fix of apfData.response ?? []) {
-    const home = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
-    const away = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
-    if (fix.goals.home === null || fix.goals.away === null) continue;
-    const entry = {
-      home, away,
-      homeScore: String(fix.goals.home),
-      awayScore: String(fix.goals.away),
-      apiId: fix.fixture.id,
+  // ── API-Football: enriquece con apiId (y fuente de fallback si FDO falla) ──
+  let apfData = null;
+  if (apiFootballKey) {
+    const apfUrl = `https://v3.football.api-sports.io/fixtures?league=${config.leagueId}&season=${config.season}&status=FT-AET-PEN`;
+    const tryApf = async (key) => {
+      const r = await fetch(apfUrl, { headers: { "x-apisports-key": key } });
+      if (!r.ok) return null;
+      const d = await r.json();
+      if (d.errors?.requests || d.errors?.token || d.errors?.plan) return null;
+      return d;
     };
-    const ph = fix.score.penalty.home, pa = fix.score.penalty.away;
-    if (ph !== null && pa !== null) { entry.penaltyHome = String(ph); entry.penaltyAway = String(pa); }
-    scoreByTeams[`${home}|${away}`] = entry;
+    apfData = await tryApf(apiFootballKey);
+    if (!apfData && apiFootballKey2) apfData = await tryApf(apiFootballKey2);
+  }
+
+  if (!usedFdo) {
+    // FDO no disponible: intentar con API-Football como fallback
+    if (!apfData) throw new Error("Sin fuente de datos disponible");
+    for (const fix of apfData.response ?? []) {
+      const home = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
+      const away = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
+      if (fix.goals.home === null || fix.goals.away === null) continue;
+      const entry = { home, away, homeScore: String(fix.goals.home), awayScore: String(fix.goals.away), apiId: fix.fixture.id };
+      const ph = fix.score.penalty.home, pa = fix.score.penalty.away;
+      if (ph !== null && pa !== null) { entry.penaltyHome = String(ph); entry.penaltyAway = String(pa); }
+      scoreByTeams[`${home}|${away}`] = entry;
+    }
+  } else if (apfData?.response) {
+    // FDO OK: enriquecer con apiId de API-Football
+    for (const fix of apfData.response) {
+      const h = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
+      const a = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
+      if (scoreByTeams[`${h}|${a}`]) scoreByTeams[`${h}|${a}`].apiId = fix.fixture.id;
+    }
   }
 
   const results = {};
@@ -188,74 +227,53 @@ export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2)
       return !teamOverrides?.[ph];
     });
 
-  if (pendingPlaceholders.length > 0) {
-    // Consultar todos los fixtures del torneo (sin filtro de estado) para leer
-    // qué selección ocupa cada plaza playoff aunque el partido no se haya jugado aún
-    const allUrl = `https://v3.football.api-sports.io/fixtures?league=${config.leagueId}&season=${config.season}`;
-    let allFixtures = null;
+  if (pendingPlaceholders.length > 0 && footballDataKey && config.fdoCode) {
+    // Pedir TODOS los partidos del torneo (incluyendo programados) via FDO
+    // para detectar qué equipo ocupa cada plaza playoff
     try {
-      const ra = await fetch(allUrl, { headers: { "x-apisports-key": apiFootballKey } });
+      const fdoAllUrl = `https://api.football-data.org/v4/competitions/${config.fdoCode}/matches?season=${config.season}`;
+      const ra = await fetch(fdoAllUrl, { headers: { "X-Auth-Token": footballDataKey } });
       if (ra.ok) {
         const da = await ra.json();
-        if (!da.errors?.requests && !da.errors?.token) allFixtures = da.response ?? [];
-      }
-    } catch (_) {}
-    if (!allFixtures && apiFootballKey2) {
-      try {
-        const ra = await fetch(allUrl, { headers: { "x-apisports-key": apiFootballKey2 } });
-        if (ra.ok) {
-          const da = await ra.json();
-          if (!da.errors?.requests && !da.errors?.token) allFixtures = da.response ?? [];
+        const allMatches = da.matches ?? [];
+        console.log(`[overrides] FDO total matches: ${allMatches.length}`);
+
+        const allTeamsByMatch = {};
+        const allConfirmedTeams = new Set();
+        for (const m of allMatches) {
+          const h = TEAM_MAP[m.homeTeam.name] ?? m.homeTeam.name;
+          const a = TEAM_MAP[m.awayTeam.name] ?? m.awayTeam.name;
+          if (h && h !== "null" && h !== "undefined") allConfirmedTeams.add(h);
+          if (a && a !== "null" && a !== "undefined") allConfirmedTeams.add(a);
+          allTeamsByMatch[`${h}|${a}`] = true;
+          allTeamsByMatch[`${a}|${h}`] = true;
         }
-      } catch (_) {}
-    }
+        console.log(`[overrides] confirmedTeams: ${[...allConfirmedTeams].join(", ")}`);
 
-    console.log(`[overrides] allFixtures count: ${allFixtures?.length ?? "null"}`);
-    if (allFixtures?.length > 0) {
-      // Log primeros 10 equipos para ver qué nombres usa la API
-      const sampleTeams = allFixtures.slice(0, 10).flatMap(f => [f.teams.home.name, f.teams.away.name]);
-      console.log(`[overrides] sample team names from API: ${JSON.stringify([...new Set(sampleTeams)])}`);
-    }
-
-    // Construir mapa de todos los partidos conocidos (incluyendo aún no jugados)
-    const allTeamsByMatch = {};
-    for (const fix of allFixtures ?? []) {
-      const h = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
-      const a = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
-      allTeamsByMatch[`${h}|${a}`] = true;
-      allTeamsByMatch[`${a}|${h}`] = true;
-    }
-    // Conjunto de todos los equipos confirmados en el torneo
-    const allConfirmedTeams = new Set(
-      (allFixtures ?? []).flatMap(fix => [
-        TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name,
-        TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name,
-      ])
-    );
-    console.log(`[overrides] allConfirmedTeams (mapped): ${JSON.stringify([...allConfirmedTeams])}`);
-
-    for (const fix of pendingPlaceholders) {
-      const homeIsPending = fix.home.endsWith("*");
-      const placeholder   = homeIsPending ? fix.home : fix.away;
-      const anchor        = homeIsPending ? fix.away : fix.home;
-      console.log(`[overrides] searching for placeholder="${placeholder}" anchor="${anchor}"`);
-      if (newOverrides[placeholder]) continue;
-      // Equipos ya conocidos del mismo grupo (no son la incógnita)
-      const knownInGroup = new Set(
-        config.fixtures
-          .filter(f2 => f2.group === fix.group && f2.id !== fix.id)
-          .flatMap(f2 => [f2.home, f2.away])
-          .filter(t => !t.endsWith("*") && t !== anchor)
-          .map(t => teamOverrides?.[t]?.name ?? t)
-      );
-      // Buscar en allConfirmedTeams: equipo que jugó contra anchor y no está en knownInGroup
-      for (const team of allConfirmedTeams) {
-        if (team === anchor || knownInGroup.has(team)) continue;
-        if (allTeamsByMatch[`${anchor}|${team}`] || allTeamsByMatch[`${team}|${anchor}`]) {
-          newOverrides[placeholder] = { name: team, flag: FLAG_MAP[team] ?? "🏳️" };
-          break;
+        for (const fix of pendingPlaceholders) {
+          const homeIsPending = fix.home.endsWith("*");
+          const placeholder   = homeIsPending ? fix.home : fix.away;
+          const anchor        = homeIsPending ? fix.away : fix.home;
+          if (newOverrides[placeholder]) continue;
+          const knownInGroup = new Set(
+            config.fixtures
+              .filter(f2 => f2.group === fix.group && f2.id !== fix.id)
+              .flatMap(f2 => [f2.home, f2.away])
+              .filter(t => !t.endsWith("*") && t !== anchor)
+              .map(t => teamOverrides?.[t]?.name ?? t)
+          );
+          for (const team of allConfirmedTeams) {
+            if (team === anchor || knownInGroup.has(team)) continue;
+            if (allTeamsByMatch[`${anchor}|${team}`] || allTeamsByMatch[`${team}|${anchor}`]) {
+              newOverrides[placeholder] = { name: team, flag: FLAG_MAP[team] ?? "🏳️" };
+              console.log(`[overrides] found: ${placeholder} = ${team}`);
+              break;
+            }
+          }
         }
       }
+    } catch (e) {
+      console.log(`[overrides] FDO error: ${e.message}`);
     }
   }
 
@@ -282,13 +300,13 @@ export async function onRequest({ request, env }) {
     }
   }
 
-  if (!env.API_FOOTBALL_KEY) {
-    return Response.json({ error: "Falta API_FOOTBALL_KEY" }, { status: 500 });
+  if (!env.API_FOOTBALL_KEY && !env.FOOTBALL_DATA_KEY) {
+    return Response.json({ error: "Falta API_FOOTBALL_KEY o FOOTBALL_DATA_KEY" }, { status: 500 });
   }
 
   const tournamentId = url.searchParams.get("tournament") ?? "mundial2026";
   try {
-    const result = await runCronSync(tournamentId, env.API_FOOTBALL_KEY, env.API_FOOTBALL_KEY_2);
+    const result = await runCronSync(tournamentId, env.API_FOOTBALL_KEY, env.API_FOOTBALL_KEY_2, env.FOOTBALL_DATA_KEY);
     return Response.json({ ok: true, ...result });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
