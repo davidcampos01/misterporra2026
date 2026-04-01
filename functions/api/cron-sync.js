@@ -79,6 +79,7 @@ function fsVal(v) {
   if (typeof v === "boolean")        return { booleanValue: v };
   if (typeof v === "number")         return { integerValue: String(Math.floor(v)) };
   if (typeof v === "string")         return { stringValue: v };
+  if (Array.isArray(v))              return { arrayValue: { values: v.map(fsVal) } };
   if (typeof v === "object")         return { mapValue: { fields: fsFields(v) } };
   return { stringValue: String(v) };
 }

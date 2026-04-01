@@ -51,7 +51,12 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
 
   const { gameState, fbError, setResult, setResults, setPred, addPlayer, removePlayer, renamePlayer, setTeamOverride } = useGameState(tournamentId);
 
-  const baseFixtures = (gameState?.fixtures?.length ? gameState.fixtures : null) ?? tournament.fixtures;
+  // Firestore puede devolver fixtures como array O como objeto {0:...,1:...} (mapa numérico)
+  const rawFixtures = gameState?.fixtures;
+  const fixturesArr = rawFixtures
+    ? (Array.isArray(rawFixtures) ? rawFixtures : Object.values(rawFixtures))
+    : null;
+  const baseFixtures = fixturesArr?.length ? fixturesArr : tournament.fixtures;
   const baseGroups = tournament.groups;
 
   // Normalizar players

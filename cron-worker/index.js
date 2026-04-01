@@ -28,7 +28,7 @@ export default {
       ? { Authorization: `Bearer ${env.CRON_SECRET}` }
       : {};
 
-    const tournaments = ["euro2024", "mundial2026"];
+    const tournaments = ["mundial2026"];
     const results = await Promise.all(
       tournaments.map(t =>
         fetch(`${PAGES_URL}/api/cron-sync?tournament=${t}`, { headers })
