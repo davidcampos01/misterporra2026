@@ -51,8 +51,9 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
 
   const { gameState, fbError, setResult, setResults, setPred, addPlayer, removePlayer, renamePlayer, setTeamOverride } = useGameState(tournamentId);
 
-  // Firestore puede devolver fixtures como array O como objeto {0:...,1:...} (mapa numérico)
-  const rawFixtures = gameState?.fixtures;
+  // Usar fixtures de Firestore solo si el torneo no tiene fixtures estáticas (mundial2026)
+  // Para euro2024 siempre usar las estáticas para que los IDs de resultados coincidan
+  const rawFixtures = !tournament.fixtures.length ? gameState?.fixtures : null;
   const fixturesArr = rawFixtures
     ? (Array.isArray(rawFixtures) ? rawFixtures : Object.values(rawFixtures))
     : null;
