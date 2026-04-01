@@ -2,7 +2,6 @@
 // Cloudflare Pages Function — equivalente al antiguo api/cron-sync.js de Vercel
 // Llamado por el cron-worker (o manualmente) con ?tournament=euro2024|mundial2026
 
-import { FIXTURES }         from "../../src/constants/fixtures.js";
 import { EURO2024_FIXTURES } from "../../src/constants/euro2024Fixtures.js";
 
 const FIREBASE_PROJECT  = "misterporra2026";
@@ -72,7 +71,7 @@ const FLAG_MAP = {
 
 const LEAGUE_CONFIG = {
   euro2024:    { leagueId: 4,  season: 2024, fdoCode: "EC", fixtures: EURO2024_FIXTURES },
-  mundial2026: { leagueId: 1,  season: 2026, fdoCode: "WC", fixtures: FIXTURES },
+  mundial2026: { leagueId: 1,  season: 2026, fdoCode: "WC", fixtures: [] },
 };
 
 function fsVal(v) {
