@@ -306,7 +306,6 @@ export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2,
           }
         }
       }
-    }
   }
 
   // ── Sync de fixtures: FDO → Firestore si cambia algún equipo ──
