@@ -26,12 +26,13 @@ const TEAM_MAP = {
   "South Africa": "Sudáfrica", "Ecuador": "Ecuador",
   "Norway": "Noruega", "Algeria": "Argelia", "Jordan": "Jordania",
   "Colombia": "Colombia", "Uzbekistan": "Uzbekistán",
-  "Cape Verde": "Cabo Verde", "Ivory Coast": "Costa de Marfil", "Cote d'Ivoire": "Costa de Marfil", "Côte d'Ivoire": "Costa de Marfil",
+  "Cape Verde": "Cabo Verde", "Cape Verde Islands": "Cabo Verde",
+  "Ivory Coast": "Costa de Marfil", "Cote d'Ivoire": "Costa de Marfil", "Côte d'Ivoire": "Costa de Marfil",
   "New Zealand": "Nueva Zelanda", "Tunisia": "Túnez", "Egypt": "Egipto",
   "Paraguay": "Paraguay", "Uruguay": "Uruguay", "Ghana": "Ghana",
   "Panama": "Panamá", "Haiti": "Haití", "Curacao": "Curazao", "Curaçao": "Curazao", "Qatar": "Qatar",
   "Greece": "Grecia", "Iceland": "Islandia", "Wales": "Gales",
-  "Bosnia and Herzegovina": "Bosnia", "Bosnia Herzegovina": "Bosnia", "Bosnia": "Bosnia",
+  "Bosnia and Herzegovina": "Bosnia", "Bosnia Herzegovina": "Bosnia", "Bosnia-Herzegovina": "Bosnia", "Bosnia": "Bosnia",
   "Israel": "Israel", "Finland": "Finlandia", "Montenegro": "Montenegro",
   "Bulgaria": "Bulgaria", "North Macedonia": "Macedonia del Norte",
   "Kosovo": "Kosovo", "Luxembourg": "Luxemburgo", "Sweden": "Suecia",
@@ -134,12 +135,13 @@ export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2,
   const scoreByTeams  = {};
 
   // ── Fuente primaria: football-data.org (sin límite, acceso a WC 2026 gratis) ──
-  let usedFdo = false;
+  let fdoReachable = false;
   if (footballDataKey && config.fdoCode) {
     try {
       const fdoUrl = `https://api.football-data.org/v4/competitions/${config.fdoCode}/matches?status=FINISHED&season=${config.season}`;
       const r = await fetch(fdoUrl, { headers: { "X-Auth-Token": footballDataKey } });
       if (r.ok) {
+        fdoReachable = true;
         const d = await r.json();
         for (const m of d.matches ?? []) {
           const home = TEAM_MAP[m.homeTeam.name] ?? m.homeTeam.name;
@@ -151,12 +153,12 @@ export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2,
           if (ph != null && pa != null) { entry.penaltyHome = String(ph); entry.penaltyAway = String(pa); }
           scoreByTeams[`${home}|${away}`] = entry;
         }
-        usedFdo = Object.keys(scoreByTeams).length > 0;
+        console.log(`[fdo] partidos FINISHED: ${Object.keys(scoreByTeams).length}`);
       }
     } catch (_) {}
   }
 
-  // ── API-Football: enriquece con apiId (y fuente de fallback si FDO falla) ──
+  // ── API-Football: enriquece con apiId (y fuente de fallback si FDO no alcanzable) ──
   let apfData = null;
   if (apiFootballKey) {
     const apfUrl = `https://v3.football.api-sports.io/fixtures?league=${config.leagueId}&season=${config.season}&status=FT-AET-PEN`;
@@ -171,17 +173,20 @@ export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2,
     if (!apfData && apiFootballKey2) apfData = await tryApf(apiFootballKey2);
   }
 
-  if (!usedFdo) {
-    // FDO no disponible: intentar con API-Football como fallback
-    if (!apfData) throw new Error("Sin fuente de datos disponible");
-    for (const fix of apfData.response ?? []) {
-      const home = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
-      const away = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
-      if (fix.goals.home === null || fix.goals.away === null) continue;
-      const entry = { home, away, homeScore: String(fix.goals.home), awayScore: String(fix.goals.away), apiId: fix.fixture.id };
-      const ph = fix.score.penalty.home, pa = fix.score.penalty.away;
-      if (ph !== null && pa !== null) { entry.penaltyHome = String(ph); entry.penaltyAway = String(pa); }
-      scoreByTeams[`${home}|${away}`] = entry;
+  if (!fdoReachable) {
+    // FDO no disponible: usar API-Football como fallback (solo útil para euro2024)
+    if (!apfData) {
+      console.log(`[cron] FDO no alcanzable y sin API-Football. Continuando sin resultados.`);
+    } else {
+      for (const fix of apfData.response ?? []) {
+        const home = TEAM_MAP[fix.teams.home.name] ?? fix.teams.home.name;
+        const away = TEAM_MAP[fix.teams.away.name] ?? fix.teams.away.name;
+        if (fix.goals.home === null || fix.goals.away === null) continue;
+        const entry = { home, away, homeScore: String(fix.goals.home), awayScore: String(fix.goals.away), apiId: fix.fixture.id };
+        const ph = fix.score.penalty.home, pa = fix.score.penalty.away;
+        if (ph !== null && pa !== null) { entry.penaltyHome = String(ph); entry.penaltyAway = String(pa); }
+        scoreByTeams[`${home}|${away}`] = entry;
+      }
     }
   } else if (apfData?.response) {
     // FDO OK: enriquecer con apiId de API-Football
