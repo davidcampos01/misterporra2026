@@ -1,25 +1,24 @@
 import {
-  PLAYOFF_UEFA_A, PLAYOFF_UEFA_B, PLAYOFF_UEFA_C, PLAYOFF_UEFA_D,
   PLAYOFF_INT1, PLAYOFF_INT2,
 } from "./groups";
 
 export const FIXTURES = [
   // J1 ── 11 junio
   { id: 1,  date: "2026-06-11", timeES: "21:00",    group: "A", home: "México",         away: "Sudáfrica",       venue: "Azteca, CDMX",              matchday: 1 },
-  { id: 2,  date: "2026-06-11", timeES: "04:00+1",  group: "A", home: "Corea del Sur",  away: PLAYOFF_UEFA_D,    venue: "Akron, Zapopan",            matchday: 1 },
+  { id: 2,  date: "2026-06-11", timeES: "04:00+1",  group: "A", home: "Corea del Sur",  away: "Chequia",    venue: "Akron, Zapopan",            matchday: 1 },
   // J1 ── 12 junio
-  { id: 3,  date: "2026-06-12", timeES: "19:00",    group: "B", home: "Canadá",         away: PLAYOFF_UEFA_A,    venue: "BMO Field, Toronto",        matchday: 1 },
+  { id: 3,  date: "2026-06-12", timeES: "19:00",    group: "B", home: "Canadá",         away: "Bosnia",    venue: "BMO Field, Toronto",        matchday: 1 },
   { id: 4,  date: "2026-06-12", timeES: "22:00",    group: "B", home: "Qatar",          away: "Suiza",           venue: "Levi's, Santa Clara",       matchday: 1 },
   { id: 5,  date: "2026-06-12", timeES: "01:00+1",  group: "D", home: "EE.UU.",         away: "Paraguay",        venue: "SoFi, Inglewood",           matchday: 1 },
   // J1 ── 13 junio
   { id: 6,  date: "2026-06-13", timeES: "00:00",    group: "C", home: "Brasil",         away: "Marruecos",       venue: "MetLife, NJ",               matchday: 1 },
   { id: 7,  date: "2026-06-13", timeES: "03:00",    group: "C", home: "Haití",          away: "Escocia",         venue: "Gillette, Foxborough",      matchday: 1 },
   // J1 ── 14 junio
-  { id: 8,  date: "2026-06-14", timeES: "07:00",    group: "D", home: "Australia",      away: PLAYOFF_UEFA_C,    venue: "BC Place, Vancouver",       matchday: 1 },
+  { id: 8,  date: "2026-06-14", timeES: "07:00",    group: "D", home: "Australia",      away: "Turquía",    venue: "BC Place, Vancouver",       matchday: 1 },
   { id: 9,  date: "2026-06-14", timeES: "17:00",    group: "E", home: "Alemania",       away: "Curazao",         venue: "NRG, Houston",              matchday: 1 },
   { id: 10, date: "2026-06-14", timeES: "20:00",    group: "F", home: "Países Bajos",   away: "Japón",           venue: "AT&T, Arlington",           matchday: 1 },
   { id: 11, date: "2026-06-14", timeES: "23:00",    group: "E", home: "Costa de Marfil",away: "Ecuador",         venue: "Lincoln, Phila.",           matchday: 1 },
-  { id: 12, date: "2026-06-15", timeES: "02:00",    group: "F", home: PLAYOFF_UEFA_B,   away: "Túnez",           venue: "BBVA, Guadalupe",           matchday: 1 },
+  { id: 12, date: "2026-06-15", timeES: "02:00",    group: "F", home: "Suecia",   away: "Túnez",           venue: "BBVA, Guadalupe",           matchday: 1 },
   // J1 ── 15 junio
   { id: 13, date: "2026-06-15", timeES: "16:00",    group: "H", home: "España",         away: "Cabo Verde",      venue: "Mercedes-Benz, Atlanta",    matchday: 1 },
   { id: 14, date: "2026-06-15", timeES: "19:00",    group: "G", home: "Bélgica",        away: "Egipto",          venue: "Lumen Field, Seattle",      matchday: 1 },
@@ -37,8 +36,8 @@ export const FIXTURES = [
   { id: 24, date: "2026-06-18", timeES: "02:00",    group: "K", home: "Uzbekistán",     away: "Colombia",        venue: "Azteca, CDMX",              matchday: 1 },
 
   // J2 ── 18 junio
-  { id: 25, date: "2026-06-18", timeES: "16:00",    group: "A", home: "Sudáfrica",      away: PLAYOFF_UEFA_D,    venue: "Mercedes-Benz, Atlanta",    matchday: 2 },
-  { id: 26, date: "2026-06-18", timeES: "19:00",    group: "B", home: "Suiza",          away: PLAYOFF_UEFA_A,    venue: "SoFi, Inglewood",           matchday: 2 },
+  { id: 25, date: "2026-06-18", timeES: "16:00",    group: "A", home: "Sudáfrica",      away: "Chequia",    venue: "Mercedes-Benz, Atlanta",    matchday: 2 },
+  { id: 26, date: "2026-06-18", timeES: "19:00",    group: "B", home: "Suiza",          away: "Bosnia",    venue: "SoFi, Inglewood",           matchday: 2 },
   { id: 27, date: "2026-06-18", timeES: "22:00",    group: "B", home: "Canadá",         away: "Qatar",           venue: "BC Place, Vancouver",       matchday: 2 },
   { id: 28, date: "2026-06-19", timeES: "01:00",    group: "A", home: "México",         away: "Corea del Sur",   venue: "Akron, Zapopan",            matchday: 2 },
   // J2 ── 19 junio
@@ -46,10 +45,10 @@ export const FIXTURES = [
   { id: 30, date: "2026-06-19", timeES: "22:00",    group: "C", home: "Escocia",        away: "Marruecos",       venue: "Gillette, Foxborough",      matchday: 2 },
   { id: 31, date: "2026-06-20", timeES: "01:00",    group: "C", home: "Brasil",         away: "Haití",           venue: "Lincoln, Phila.",           matchday: 2 },
   // J2 ── 20 junio
-  { id: 32, date: "2026-06-20", timeES: "04:00",    group: "D", home: "Paraguay",       away: PLAYOFF_UEFA_C,    venue: "Levi's, Santa Clara",       matchday: 2 },
+  { id: 32, date: "2026-06-20", timeES: "04:00",    group: "D", home: "Paraguay",       away: "Turquía",    venue: "Levi's, Santa Clara",       matchday: 2 },
   { id: 33, date: "2026-06-20", timeES: "17:00",    group: "E", home: "Ecuador",        away: "Alemania",        venue: "MetLife, NJ",               matchday: 2 },
   { id: 34, date: "2026-06-20", timeES: "20:00",    group: "F", home: "Túnez",          away: "Países Bajos",    venue: "Arrowhead, KC",             matchday: 2 },
-  { id: 35, date: "2026-06-21", timeES: "23:00",    group: "F", home: "Japón",          away: PLAYOFF_UEFA_B,    venue: "AT&T, Arlington",           matchday: 2 },
+  { id: 35, date: "2026-06-21", timeES: "23:00",    group: "F", home: "Japón",          away: "Suecia",    venue: "AT&T, Arlington",           matchday: 2 },
   { id: 36, date: "2026-06-21", timeES: "02:00",    group: "E", home: "Curazao",        away: "Costa de Marfil", venue: "Lincoln, Phila.",           matchday: 2 },
   // J2 ── 21 junio
   { id: 37, date: "2026-06-21", timeES: "19:00",    group: "H", home: "Cabo Verde",     away: "Arabia Saudí",    venue: "Hard Rock, Miami",          matchday: 2 },
@@ -69,19 +68,19 @@ export const FIXTURES = [
 
   // J3 ── todos simultáneos por grupo
   // 24 junio
-  { id: 49, date: "2026-06-24", timeES: "22:00",    group: "A", home: "México",         away: PLAYOFF_UEFA_D,    venue: "Azteca, CDMX",              matchday: 3 },
+  { id: 49, date: "2026-06-24", timeES: "22:00",    group: "A", home: "México",         away: "Chequia",    venue: "Azteca, CDMX",              matchday: 3 },
   { id: 50, date: "2026-06-24", timeES: "22:00",    group: "A", home: "Sudáfrica",      away: "Corea del Sur",   venue: "BBVA, Guadalupe",           matchday: 3 },
   { id: 51, date: "2026-06-24", timeES: "19:00",    group: "B", home: "Suiza",          away: "Canadá",          venue: "Levi's, Santa Clara",       matchday: 3 },
-  { id: 52, date: "2026-06-24", timeES: "19:00",    group: "B", home: PLAYOFF_UEFA_A,   away: "Qatar",           venue: "Lumen Field, Seattle",      matchday: 3 },
+  { id: 52, date: "2026-06-24", timeES: "19:00",    group: "B", home: "Bosnia",   away: "Qatar",           venue: "Lumen Field, Seattle",      matchday: 3 },
   { id: 53, date: "2026-06-24", timeES: "22:00",    group: "C", home: "Brasil",         away: "Escocia",         venue: "Mercedes-Benz, Atlanta",    matchday: 3 },
   { id: 54, date: "2026-06-24", timeES: "22:00",    group: "C", home: "Marruecos",      away: "Haití",           venue: "Mercedes-Benz, Atlanta",    matchday: 3 },
   // 25 junio
-  { id: 55, date: "2026-06-25", timeES: "01:00",    group: "D", home: "EE.UU.",         away: PLAYOFF_UEFA_C,    venue: "SoFi, Inglewood",           matchday: 3 },
+  { id: 55, date: "2026-06-25", timeES: "01:00",    group: "D", home: "EE.UU.",         away: "Turquía",    venue: "SoFi, Inglewood",           matchday: 3 },
   { id: 56, date: "2026-06-25", timeES: "01:00",    group: "D", home: "Paraguay",       away: "Australia",       venue: "Levi's, Santa Clara",       matchday: 3 },
   { id: 57, date: "2026-06-25", timeES: "20:00",    group: "E", home: "Alemania",       away: "Costa de Marfil", venue: "NRG, Houston",              matchday: 3 },
   { id: 58, date: "2026-06-25", timeES: "20:00",    group: "E", home: "Ecuador",        away: "Curazao",         venue: "MetLife, NJ",               matchday: 3 },
   { id: 59, date: "2026-06-25", timeES: "23:00",    group: "F", home: "Japón",          away: "Túnez",           venue: "BBVA, Guadalupe",           matchday: 3 },
-  { id: 60, date: "2026-06-25", timeES: "23:00",    group: "F", home: "Países Bajos",   away: PLAYOFF_UEFA_B,    venue: "Arrowhead, KC",             matchday: 3 },
+  { id: 60, date: "2026-06-25", timeES: "23:00",    group: "F", home: "Países Bajos",   away: "Suecia",    venue: "Arrowhead, KC",             matchday: 3 },
   // 26 junio
   { id: 61, date: "2026-06-26", timeES: "20:00",    group: "G", home: "Bélgica",        away: "Irán",            venue: "SoFi, Inglewood",           matchday: 3 },
   { id: 62, date: "2026-06-26", timeES: "20:00",    group: "G", home: "Nueva Zelanda",  away: "Egipto",          venue: "Lumen Field, Seattle",      matchday: 3 },

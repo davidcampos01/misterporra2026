@@ -112,7 +112,24 @@ export async function onRequest({ request, env }) {
       }
     }
 
-    return Response.json({ ok: true, scores });
+    // ─ Todos los emparejamientos (para detectar overrides de repesca incluso antes de jugar) ─
+    let allPairings = [];
+    if (env.FOOTBALL_DATA_KEY && config.fdoCode) {
+      try {
+        const fdoAllUrl = `https://api.football-data.org/v4/competitions/${config.fdoCode}/matches?season=${config.season}`;
+        const rAll = await fetch(fdoAllUrl, { headers: { "X-Auth-Token": env.FOOTBALL_DATA_KEY } });
+        if (rAll.ok) {
+          const dAll = await rAll.json();
+          for (const m of dAll.matches ?? []) {
+            const h = TEAM_MAP[m.homeTeam?.name] ?? m.homeTeam?.name;
+            const a = TEAM_MAP[m.awayTeam?.name] ?? m.awayTeam?.name;
+            if (h && a) allPairings.push({ home: h, away: a });
+          }
+        }
+      } catch (_) {}
+    }
+
+    return Response.json({ ok: true, scores, allPairings });
   } catch (err) {
     return Response.json({ error: err.message ?? "Error interno" }, { status: 500 });
   }

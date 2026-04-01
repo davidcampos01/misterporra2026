@@ -144,8 +144,12 @@ export function SetupTab({ players, scores, standingsScores, koScores, renamePla
           results[String(fix.id)] = entry;
           matched++;
         }
-        // Auto-detectar equipos de repechaje: para cada fixture con placeholder (*),
-        // buscamos en los resultados un partido del equipo conocido vs uno no conocido del grupo.
+        // Auto-detectar equipos de repechaje usando TODOS los emparejamientos del torneo
+        // (no solo partidos terminados, para detectar antes de que empiece la competición)
+        const pairingsSource = data.allPairings?.length
+          ? data.allPairings
+          : Object.keys(scoreByTeams).map(k => { const [home, away] = k.split("|"); return { home, away }; });
+
         const resolvedOverrides = {};
         const pendingFixes = fixtures.filter(f => f.home.endsWith("*") || f.away.endsWith("*"));
         for (const fix of pendingFixes) {
@@ -153,17 +157,17 @@ export function SetupTab({ players, scores, standingsScores, koScores, renamePla
           const placeholder = homeIsPending ? fix.home : fix.away;
           const anchor      = homeIsPending ? fix.away : fix.home;
           if (teamOverrides?.[placeholder] || resolvedOverrides[placeholder]) continue;
-          const knownOpponents = new Set(
+          const knownInGroup = new Set(
             fixtures
               .filter(f2 => f2.group === fix.group && f2.id !== fix.id)
               .flatMap(f2 => [f2.home, f2.away])
               .filter(t => !t.endsWith("*") && t !== anchor)
+              .map(t => teamOverrides?.[t]?.name ?? t)
           );
-          for (const [key] of Object.entries(scoreByTeams)) {
-            const [h, a] = key.split("|");
+          for (const { home: h, away: a } of pairingsSource) {
             let realName = null;
-            if (h === anchor && !knownOpponents.has(a)) realName = a;
-            else if (a === anchor && !knownOpponents.has(h)) realName = h;
+            if (h === anchor && !knownInGroup.has(a)) realName = a;
+            else if (a === anchor && !knownInGroup.has(h)) realName = h;
             if (realName) {
               resolvedOverrides[placeholder] = { name: realName, flag: FLAG_MAP[realName] ?? "🏳️" };
               break;
@@ -174,15 +178,16 @@ export function SetupTab({ players, scores, standingsScores, koScores, renamePla
           setTeamOverride?.(ph, team);
         }
 
-        if (matched === 0) {
+        const overrideCount = Object.keys(resolvedOverrides).length;
+        if (matched === 0 && overrideCount === 0) {
           setSyncState("error");
           setSyncMsg("No se encontraron partidos coincidentes. Los resultados existentes no han cambiado.");
         } else {
-          await onSync(results);
-          const extraMsg = Object.keys(resolvedOverrides).length
-            ? ` · ${Object.keys(resolvedOverrides).length} equipo(s) identificado(s)` : "";
+          if (matched > 0) await onSync(results);
+          const extraMsg = overrideCount ? ` · ${overrideCount} equipo(s) identificado(s)` : "";
+          const resultMsg = matched > 0 ? `✓ ${matched} partidos actualizados` : "Sin resultados aún";
           setSyncState("ok");
-          setSyncMsg(`✓ ${matched} partidos actualizados${extraMsg}`);
+          setSyncMsg(`${resultMsg}${extraMsg}`);
         }
       } else {
         setSyncState("error");
