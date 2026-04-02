@@ -55,30 +55,26 @@ export function getQualifiersFromPreds(playerPreds, fixtures, groups, numBest3rd
   return slots;
 }
 
-// Estructura fija del bracket R32 de Mundial 2026
-// 16 partidos: 12 cruces 1º vs 2º (sin mismo grupo) + 4 partidos entre mejores 3ºs
-// Organizados en 4 secciones que confluyen en Semifinales
+// Estructura fija del bracket R32 de Mundial 2026 según FIFA 2026
+// 16 partidos: 4 cruces 2º vs 2º + 4 cruces 1º vs 2º + 8 cruces 1º vs 3º
+// Los terceros (T1-T8) se asignan dinámicamente según ranking de clasificación
 export const R32_SLOTS = [
-  // Sección 1 → SF izq
-  { id: "R32_1",  slotA: "1A", slotB: "2G" },
-  { id: "R32_2",  slotA: "1B", slotB: "2H" },
-  { id: "R32_3",  slotA: "T1", slotB: "T2" },
-  { id: "R32_4",  slotA: "T3", slotB: "T4" },
-  // Sección 2 → SF izq
-  { id: "R32_5",  slotA: "1C", slotB: "2I" },
-  { id: "R32_6",  slotA: "1D", slotB: "2J" },
-  { id: "R32_7",  slotA: "T5", slotB: "T6" },
-  { id: "R32_8",  slotA: "T7", slotB: "T8" },
-  // Sección 3 → SF der
-  { id: "R32_9",  slotA: "1E", slotB: "2K" },
-  { id: "R32_10", slotA: "1F", slotB: "2L" },
-  { id: "R32_11", slotA: "1G", slotB: "2A" },
-  { id: "R32_12", slotA: "1H", slotB: "2B" },
-  // Sección 4 → SF der
-  { id: "R32_13", slotA: "1I", slotB: "2C" },
-  { id: "R32_14", slotA: "1J", slotB: "2D" },
-  { id: "R32_15", slotA: "1K", slotB: "2E" },
-  { id: "R32_16", slotA: "1L", slotB: "2F" },
+  { id: "R32_1",  slotA: "1E", slotB: "T1" },   // 1ºE vs 3º(ABCDF)
+  { id: "R32_2",  slotA: "1I", slotB: "T2" },   // 1ºI vs 3º(CDFGH)
+  { id: "R32_3",  slotA: "2A", slotB: "2B" },   // 2ºA vs 2ºB
+  { id: "R32_4",  slotA: "1F", slotB: "2C" },   // 1ºF vs 2ºC
+  { id: "R32_5",  slotA: "2K", slotB: "2L" },   // 2ºK vs 2ºL
+  { id: "R32_6",  slotA: "1H", slotB: "2J" },   // 1ºH vs 2ºJ
+  { id: "R32_7",  slotA: "1D", slotB: "T3" },   // 1ºD vs 3º(BEFIJ)
+  { id: "R32_8",  slotA: "1G", slotB: "T4" },   // 1ºG vs 3º(AEHIJ)
+  { id: "R32_9",  slotA: "1C", slotB: "2F" },   // 1ºC vs 2ºF
+  { id: "R32_10", slotA: "2E", slotB: "2I" },   // 2ºE vs 2ºI
+  { id: "R32_11", slotA: "1A", slotB: "T5" },   // 1ºA vs 3º(CEFHI)
+  { id: "R32_12", slotA: "1L", slotB: "T6" },   // 1ºL vs 3º(EHIJK)
+  { id: "R32_13", slotA: "1J", slotB: "2H" },   // 1ºJ vs 2ºH
+  { id: "R32_14", slotA: "2D", slotB: "2G" },   // 2ºD vs 2ºG
+  { id: "R32_15", slotA: "1B", slotB: "T7" },   // 1ºB vs 3º(EFGIJ)
+  { id: "R32_16", slotA: "1K", slotB: "T8" },   // 1ºK vs 3º(DEIJL)
 ];
 
 // Árbol del bracket: qué partido R32 alimenta cada R16, QF, SF
