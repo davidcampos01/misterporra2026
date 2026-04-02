@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { PLAYER_COLORS } from "../constants/theme";
 import { getStandings, scoreStandings, scoreKnockoutMatch } from "../utils/scoring";
-import { buildEuroBracket, buildPredBracket, getQualifiersFromPreds } from "../utils/knockout";
+import { buildEuroBracket, buildPredBracket, buildWC26Bracket, buildPredBracketWC26, getQualifiersFromPreds, getQualifiers } from "../utils/knockout";
 import { FilterChip } from "../components/FilterChip";
 import { MatchRow } from "../components/MatchRow";
 import { useTournament } from "../context/TournamentContext";
@@ -183,11 +183,32 @@ function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap 
   const color = PLAYER_COLORS[activePlayerIdx % 6];
 
   // Bracket real (para mostrar resultado real al lado y calcular puntos)
-  const realBr = useMemo(() => buildEuroBracket(fixtures, results), [fixtures, results]);
-  // Bracket de predicciones del jugador (con clasificados calculados desde pronósticos de grupos)
-  const predBr = useMemo(() => buildPredBracket(fixtures, playerPreds, groups, tournament.numBest3rds), [fixtures, playerPreds, groups, tournament.numBest3rds]);
+  const realBr = useMemo(() => {
+    if (tournament.id === "euro2024") return buildEuroBracket(fixtures, results);
+    if (tournament.id === "mundial2026") {
+      const qualifiers = getQualifiers(results, fixtures, groups, tournament.numBest3rds);
+      return buildWC26Bracket(fixtures, results, qualifiers);
+    }
+    return null;
+  }, [fixtures, results, groups, tournament]);
 
-  const ROUNDS = [
+  // Bracket de predicciones del jugador (con clasificados calculados desde pronósticos de grupos)
+  const predBr = useMemo(() => {
+    if (tournament.id === "euro2024") {
+      return buildPredBracket(fixtures, playerPreds, groups, tournament.numBest3rds);
+    } else if (tournament.id === "mundial2026") {
+      return buildPredBracketWC26(fixtures, playerPreds, groups, tournament.numBest3rds);
+    }
+    return null;
+  }, [fixtures, playerPreds, groups, tournament]);
+
+  const ROUNDS = tournament.id === "mundial2026" ? [
+    { key: "r32", label: "32avos de Final" },
+    { key: "r16", label: "16avos de Final" },
+    { key: "qf",  label: "Cuartos de Final" },
+    { key: "sf",  label: "Semifinales" },
+    { key: "final", label: "🏆 Final", isFinal: true },
+  ] : [
     { key: "r16", label: "Octavos de Final" },
     { key: "qf",  label: "Cuartos de Final" },
     { key: "sf",  label: "Semifinales" },
