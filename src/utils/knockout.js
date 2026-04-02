@@ -398,7 +398,6 @@ export function buildPredBracketWC26(fixtures, playerPreds, groups, numBest3rds 
   const qfFx  = sort(fixtures.filter(f => f.group === "QF"));
   const sfFx  = sort(fixtures.filter(f => f.group === "SF"));
   const finFx = fixtures.find(f => f.group === "FINAL") ?? null;
-  if (!r32Fx.length) return null;
 
   const resolve = (slot) => qualifiers[slot] ?? { name: slot, flag: "❓", tbd: true };
 

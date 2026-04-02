@@ -309,6 +309,14 @@ function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap 
     );
   };
 
+  if (!predBr) {
+    return (
+      <div style={{ fontSize: 11, color: "#4040a0", marginBottom: 14, lineHeight: 1.6 }}>
+        Las eliminatorias aparecerán cuando tengas clasificados los equipos de grupos.
+      </div>
+    );
+  }
+
   return (
     <div>
       <div style={{ fontSize: 11, color: "#4040a0", marginBottom: 14, lineHeight: 1.6 }}>
