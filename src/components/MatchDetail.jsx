@@ -37,7 +37,9 @@ function eventIcon(type, detail) {
 }
 
 function EventRow({ ev, homeTeamId }) {
-  const isHome = ev.team?.id === homeTeamId;
+  const isHome = homeTeamId != null && ev.team?.id != null
+    ? Number(ev.team.id) === Number(homeTeamId)
+    : false;
   const icon = eventIcon(ev.type, ev.detail);
   const minute = ev.time?.elapsed + (ev.time?.extra ? `+${ev.time.extra}` : "");
   const playerName = ev.player?.name ?? "";
@@ -423,17 +425,31 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
   const rh = resultData?.homeScore ?? "";
   const ra = resultData?.awayScore ?? "";
 
-  // Detectar si la API tiene los equipos invertidos respecto a nuestros datos
-  const apiHomeName = data?.homeTeamName;
-  const teamsSwapped = apiHomeName
-    ? (API_TEAM_ES[apiHomeName] ?? apiHomeName) === match.away
-    : false;
-  const homeTeamId = teamsSwapped ? (data?.awayTeamId ?? null) : (data?.homeTeamId ?? null);
-  const awayTeamId = teamsSwapped ? (data?.homeTeamId ?? null) : (data?.awayTeamId ?? null);
   const events = data?.events ?? [];
 
-  const homeLineup = data?.lineups?.find(l => l.team?.id === homeTeamId) ?? data?.lineups?.[0];
-  const awayLineup = data?.lineups?.find(l => l.team?.id === awayTeamId) ?? data?.lineups?.[1];
+  // Derivar los IDs de equipo de forma robusta:
+  // 1. Buscar en alineaciones por nombre (más fiable, evita el problema de swap)
+  // 2. Si no hay alineaciones, usar los IDs del fixture con detección de swap como fallback
+  const esName = name => name ? (API_TEAM_ES[name] ?? name) : null;
+  const lineupByName = name => data?.lineups?.find(l => esName(l.team?.name) === name);
+
+  const homeLineupByName = lineupByName(match.home);
+  const awayLineupByName = lineupByName(match.away);
+
+  // Fallback: swap detection para cuando no hay alineaciones
+  const apiHomeName = data?.homeTeamName;
+  const teamsSwapped = !homeLineupByName && apiHomeName
+    ? esName(apiHomeName) === match.away
+    : false;
+  const fixtureHomeId = teamsSwapped ? (data?.awayTeamId ?? null) : (data?.homeTeamId ?? null);
+  const fixtureAwayId = teamsSwapped ? (data?.homeTeamId ?? null) : (data?.awayTeamId ?? null);
+
+  // IDs finales: primero desde alineaciones (por nombre), luego desde fixture
+  const homeTeamId = homeLineupByName?.team?.id ?? fixtureHomeId;
+  const awayTeamId = awayLineupByName?.team?.id ?? fixtureAwayId;
+
+  const homeLineup = homeLineupByName ?? data?.lineups?.find(l => l.team?.id === homeTeamId) ?? data?.lineups?.[0];
+  const awayLineup = awayLineupByName ?? data?.lineups?.find(l => l.team?.id === awayTeamId) ?? data?.lineups?.[1];
   const hasLineups = !!(homeLineup || awayLineup);
 
   // Agrupar eventos en secciones
