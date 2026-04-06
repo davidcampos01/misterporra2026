@@ -47,7 +47,7 @@ export function MatchRow({ match, resultData, onResultChange, predictions, playe
         </div>
 
         {mode === "results" ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, flexShrink: 0 }}>
+          <div onClick={e => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <ScoreInput value={rh} onChange={v => onResultChange("homeScore", v)} />
               <span style={{ color: "#2a2a40", fontWeight: 800, fontSize: 14 }}>–</span>
@@ -78,7 +78,7 @@ export function MatchRow({ match, resultData, onResultChange, predictions, playe
               const pts = hasPred && hasReal ? scoreMatch(+rh, +ra, +ph, +pa) : null;
               const pColor = PLAYER_COLORS[activePlayerIdx % 6];
               return (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                <div onClick={e => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                   <div style={{ fontSize: 9, color: pColor.text, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 2, textAlign: "center" }}>Pred.</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
                     <ScoreInput value={ph ?? ""} onChange={v => onPredChange(match.id, "h", v)} color={pColor.bg} />
