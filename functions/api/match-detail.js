@@ -30,6 +30,12 @@ export async function onRequest({ request, env }) {
     return Response.json({ error: "Falta API_FOOTBALL_KEY" }, { status: 500 });
   }
 
+  // Intentar servir desde la caché de Cloudflare (compartida entre todos los dispositivos)
+  const cache = caches.default;
+  const cacheKey = new Request(`https://cache.internal/match-detail/${fixtureApiId}`);
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
   const base = "https://v3.football.api-sports.io";
   const urls = [
     `${base}/fixtures?id=${fixtureApiId}`,
@@ -51,16 +57,21 @@ export async function onRequest({ request, env }) {
     const events = eventsData.response ?? [];
     const isFinished   = ["FT","AET","PEN"].includes(fix?.fixture?.status?.short);
 
-    // Partidos terminados: cache de 1 año en CDN de Cloudflare → todos los dispositivos comparten la misma respuesta cacheada
-    // Partidos con datos vacíos o en juego: cache corta para reintentar pronto
     const cacheHeader = (isFinished && events.length > 0)
       ? "public, s-maxage=31536000, max-age=31536000, immutable"
-      : "s-maxage=30, stale-while-revalidate=60";
+      : "public, s-maxage=30, stale-while-revalidate=60";
 
-    return new Response(
-      JSON.stringify({ ok: true, homeTeamId, awayTeamId, homeTeamName, events, lineups: lineupsData.response ?? [] }),
-      { headers: { "Content-Type": "application/json", "Cache-Control": cacheHeader } }
-    );
+    const body = JSON.stringify({ ok: true, homeTeamId, awayTeamId, homeTeamName, events, lineups: lineupsData.response ?? [] });
+    const response = new Response(body, {
+      headers: { "Content-Type": "application/json", "Cache-Control": cacheHeader },
+    });
+
+    // Guardar en caché de Cloudflare solo si el partido está terminado y tiene eventos
+    if (isFinished && events.length > 0) {
+      await cache.put(cacheKey, response.clone());
+    }
+
+    return response;
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }

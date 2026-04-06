@@ -372,9 +372,17 @@ const API_TEAM_ES = {
   "Norway":"Noruega","Sweden":"Suecia","Greece":"Grecia",
 };
 
-// Caché en memoria por apiId — persiste durante la sesión del navegador
-// Los partidos acabados no cambian, así que no hay riesgo de datos obsoletos
+// Caché en memoria por apiId — persiste durante la sesión
 const detailCache = {};
+
+const LS_PREFIX = "md_cache_";
+
+function lsGet(apiId) {
+  try { const v = localStorage.getItem(LS_PREFIX + apiId); return v ? JSON.parse(v) : null; } catch { return null; }
+}
+function lsSet(apiId, data) {
+  try { localStorage.setItem(LS_PREFIX + apiId, JSON.stringify(data)); } catch { /* quota */ }
+}
 
 export function MatchDetail({ match, resultData, flagMap, onClose }) {
   const [data, setData]       = useState(null);
@@ -386,20 +394,20 @@ export function MatchDetail({ match, resultData, flagMap, onClose }) {
 
   useEffect(() => {
     if (!apiId) return;
-    // Si ya tenemos los datos en caché, los usamos directamente sin llamar a la API
-    if (detailCache[apiId]) {
-      setData(detailCache[apiId]);
-      return;
-    }
+    // 1. Caché en memoria (más rápido)
+    if (detailCache[apiId]) { setData(detailCache[apiId]); return; }
+    // 2. Caché en localStorage (persiste entre recargas)
+    const lsCached = lsGet(apiId);
+    if (lsCached) { detailCache[apiId] = lsCached; setData(lsCached); return; }
     setLoading(true);
     setError(null);
     fetch(`/api/match-detail?fixtureApiId=${apiId}`)
       .then(r => r.json())
       .then(d => {
         if (d.ok) {
-          // Solo cachear si hay datos útiles; evita cachear respuestas vacías por límite de API
           if (d.events?.length > 0 || d.lineups?.length > 0) {
             detailCache[apiId] = d;
+            lsSet(apiId, d);
           }
           setData(d);
         } else {
