@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { getQualifiers, buildBracket, buildEuroBracket } from "../utils/knockout";
+import { getQualifiers, buildBracket, buildEuroBracket, buildWC26Bracket } from "../utils/knockout";
 import { useTournament } from "../context/TournamentContext";
 import { ScoreInput } from "../components/ScoreInput";
 
@@ -159,22 +159,103 @@ function EuroBracket({ results, setResult, flagMap }) {
   );
 }
 
-// ── WC bracket (calcula desde classificados de grupos) ────────────────────────
-function WCBracket({ qualifiers }) {
-  const br = useMemo(() => buildBracket(qualifiers, {}), [qualifiers]);
+// ── WC bracket (usa buildWC26Bracket con fixtures reales + resultados editables) ──
+function WCBracket({ qualifiers, results, setResult }) {
+  const { fixtures } = useTournament();
+  const br = useMemo(() => buildWC26Bracket(fixtures, results, qualifiers), [fixtures, results, qualifiers]);
+
+  // Si no hay fixtures KO en Firestore aún, usar buildBracket estático
+  const staticBr = useMemo(() => !br ? buildBracket(qualifiers, results) : null, [br, qualifiers, results]);
+  const bracket = br ?? staticBr;
+  if (!bracket) return null;
+
+  const mkChange = (id) => setResult ? (key, val) => setResult(id, key, val) : undefined;
+
+  const renderWCMatch = (match, label) => {
+    if (!match) return null;
+    const r = results?.[match.id];
+    const hasResult = r && r.homeScore !== "" && r.homeScore !== undefined;
+    const isDraw = hasResult && String(r.homeScore) === String(r.awayScore);
+    // Para bracket estático (sin fixtures KO), teamA/teamB son objetos; para dinámico son strings
+    const homeStr = typeof match.home === "string" ? match.home : (match.teamA?.name ?? "?");
+    const awayStr = typeof match.away === "string" ? match.away : (match.teamB?.name ?? "?");
+    const homeFlag = typeof match.home === "string" ? (qualifiers?.[match.home]?.flag ?? "❓") : (match.teamA?.flag ?? "❓");
+    const awayFlag = typeof match.away === "string" ? (qualifiers?.[match.away]?.flag ?? "❓") : (match.teamB?.flag ?? "❓");
+    const homeTbd = homeStr === "?" || homeStr.startsWith("?");
+    const awayTbd = awayStr === "?" || awayStr.startsWith("?");
+    const bothKnown = !homeTbd && !awayTbd && homeStr !== "?" && awayStr !== "?";
+
+    const winner = hasResult
+      ? (r.winner === "A" ? homeStr : r.winner === "B" ? awayStr : +r.homeScore > +r.awayScore ? homeStr : +r.homeScore < +r.awayScore ? awayStr : null)
+      : null;
+
+    return (
+      <div key={match.id} style={{ background: "#111120", border: "1px solid #1a1a2a", borderRadius: 10, overflow: "hidden", minWidth: setResult ? 185 : 130 }}>
+        {label && <div style={{ fontSize: 9, color: "#3a3a60", fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", padding: "5px 8px 3px", borderBottom: "1px solid #1a1a2a" }}>{label}</div>}
+        <div style={{ padding: "6px 4px", display: "flex", flexDirection: "column", gap: 3 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px", background: winner === homeStr ? "rgba(245,200,66,.15)" : "rgba(255,255,255,.03)", borderRadius: 8, border: `1px solid ${winner === homeStr ? "#f5c842" : "rgba(255,255,255,.07)"}`, opacity: (winner && winner !== homeStr && !homeTbd) ? 0.4 : 1 }}>
+            <span style={{ fontSize: 15 }}>{homeFlag}</span>
+            <span style={{ fontSize: 10, fontWeight: winner === homeStr ? 800 : 500, color: homeTbd ? "#3a3a60" : winner === homeStr ? "#f5c842" : "#d0d0e8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{homeStr}</span>
+          </div>
+          {setResult && bothKnown && match.id ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "4px 0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <ScoreInput value={r?.homeScore ?? ""} onChange={v => mkChange(match.id)("homeScore", v)} />
+                <span style={{ color: "#2a2a40", fontWeight: 800, fontSize: 14 }}>–</span>
+                <ScoreInput value={r?.awayScore ?? ""} onChange={v => mkChange(match.id)("awayScore", v)} />
+              </div>
+              {isDraw && (
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <input type="number" min="0" max="99" value={r?.penaltyHome ?? ""} onChange={e => mkChange(match.id)("penaltyHome", e.target.value)} placeholder="–" style={{ width: 30, height: 28, background: "#0a0a14", border: "1.5px solid #a066ff", borderRadius: 6, color: "#f0f0f8", fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, textAlign: "center", outline: "none" }} />
+                  <span style={{ fontSize: 9, color: "#a066ff", fontWeight: 800, letterSpacing: 1 }}>PEN</span>
+                  <input type="number" min="0" max="99" value={r?.penaltyAway ?? ""} onChange={e => mkChange(match.id)("penaltyAway", e.target.value)} placeholder="–" style={{ width: 30, height: 28, background: "#0a0a14", border: "1.5px solid #a066ff", borderRadius: 6, color: "#f0f0f8", fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, textAlign: "center", outline: "none" }} />
+                </div>
+              )}
+              {isDraw && <div style={{ fontSize: 9, color: "#a066ff", letterSpacing: 1, fontWeight: 800 }}>DESEMPATE POR PENALTIS</div>}
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", fontSize: 9, color: "#2a2a50", fontWeight: 800, letterSpacing: 1 }}>
+              {hasResult ? `${r.homeScore} – ${r.awayScore}${r.penaltyHome !== undefined && r.penaltyHome !== "" ? ` (${r.penaltyHome}-${r.penaltyAway}p)` : ""}` : "VS"}
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px", background: winner === awayStr ? "rgba(245,200,66,.15)" : "rgba(255,255,255,.03)", borderRadius: 8, border: `1px solid ${winner === awayStr ? "#f5c842" : "rgba(255,255,255,.07)"}`, opacity: (winner && winner !== awayStr && !awayTbd) ? 0.4 : 1 }}>
+            <span style={{ fontSize: 15 }}>{awayFlag}</span>
+            <span style={{ fontSize: 10, fontWeight: winner === awayStr ? 800 : 500, color: awayTbd ? "#3a3a60" : winner === awayStr ? "#f5c842" : "#d0d0e8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{awayStr}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const r32matches = br ? bracket.r32 : bracket.r32;
+  const r16matches = bracket.r16;
+  const qfmatches = bracket.qf;
+  const sfmatches = bracket.sf;
+  const tercero = bracket.tercerPuesto;
+  const final = bracket.final;
+
   return (
     <>
-      <RoundSection title="Octavos de Final">{br.r32.map((m, i) => <WCMatchCard key={m.id} match={m} knockoutResults={{}} label={`Partido ${i + 1}`} />)}</RoundSection>
-      <RoundSection title="Cuartos de Final">{br.r16.map((m, i) => <WCMatchCard key={m.id} match={m} knockoutResults={{}} label={`CF ${i + 1}`} />)}</RoundSection>
-      <RoundSection title="Semifinales">{br.sf.map((m, i) => <WCMatchCard key={m.id} match={m} knockoutResults={{}} size="lg" label={`SF ${i + 1}`} />)}</RoundSection>
+      <RoundSection title="Dieciseisavos de Final" color="#4cc9f0">
+        {r32matches.map((m, i) => renderWCMatch(m, `P${i + 1}`))}
+      </RoundSection>
+      <RoundSection title="Octavos de Final" color="#4cc9f0">
+        {r16matches.map((m, i) => renderWCMatch(m, `OF ${i + 1}`))}
+      </RoundSection>
+      <RoundSection title="Cuartos de Final" color="#a066ff">
+        {qfmatches.map((m, i) => renderWCMatch(m, `CF ${i + 1}`))}
+      </RoundSection>
+      <RoundSection title="Semifinales" color="#f5c842">
+        {sfmatches.map((m, i) => renderWCMatch(m, `SF ${i + 1}`))}
+      </RoundSection>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
         <div>
           <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 14, letterSpacing: 3, color: "#ff9944", textTransform: "uppercase", marginBottom: 10, paddingBottom: 5, borderBottom: "1px solid #1a1a2a" }}>3er Puesto</div>
-          <WCMatchCard match={br.tercerPuesto} knockoutResults={{}} size="lg" />
+          {renderWCMatch(tercero, null)}
         </div>
         <div>
           <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 14, letterSpacing: 3, color: "#f5c842", textTransform: "uppercase", marginBottom: 10, paddingBottom: 5, borderBottom: "1px solid #1a1a2a" }}>🏆 Final</div>
-          <WCMatchCard match={br.final} knockoutResults={{}} size="lg" />
+          {renderWCMatch(final, null)}
         </div>
       </div>
     </>
@@ -197,7 +278,7 @@ export function EliminatoriaTab({ results, setResult, predictions, players, acti
   return (
     <div style={{ padding: 16 }} className="fade-in">
       <QualifiersGrid qualifiers={realQualifiers} groups={groups} numBest3rds={tournament.numBest3rds} />
-      {isEuro ? <EuroBracket results={results} setResult={setResult} flagMap={flagMap} /> : <WCBracket qualifiers={realQualifiers} />}
+      {isEuro ? <EuroBracket results={results} setResult={setResult} flagMap={flagMap} /> : <WCBracket qualifiers={realQualifiers} results={results} setResult={setResult} />}
     </div>
   );
 }

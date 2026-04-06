@@ -320,11 +320,11 @@ export function buildEuroBracket(fixtures, results) {
 // Requiere que las fixtures de knock-out existan en el array (group="R32","R16","QF","SF","FINAL")
 export function buildWC26Bracket(fixtures, results, qualifiers) {
   const sort = (arr) => [...arr].sort((a, b) => a.id - b.id);
-  const r32Fx = sort(fixtures.filter(f => f.group === "R32"));
-  const r16Fx = sort(fixtures.filter(f => f.group === "R16"));
-  const qfFx  = sort(fixtures.filter(f => f.group === "QF"));
-  const sfFx  = sort(fixtures.filter(f => f.group === "SF"));
-  const finFx = fixtures.find(f => f.group === "FINAL") ?? null;
+  const r32Fx = sort(fixtures.filter(f => f.group === "R32" || f.stage === "LAST_32"));
+  const r16Fx = sort(fixtures.filter(f => f.group === "R16" || f.stage === "LAST_16"));
+  const qfFx  = sort(fixtures.filter(f => f.group === "QF"  || f.stage === "QUARTER_FINALS"));
+  const sfFx  = sort(fixtures.filter(f => f.group === "SF"  || f.stage === "SEMI_FINALS"));
+  const finFx = fixtures.find(f => f.group === "FINAL" || f.stage === "FINAL") ?? null;
   if (!r32Fx.length) return null; // KO fixtures no añadidas aún
 
   const resolve = (slot) => qualifiers?.[slot] ?? { name: slot, flag: "❓", tbd: true };
@@ -381,19 +381,19 @@ export function buildWC26Bracket(fixtures, results, qualifiers) {
 }
 
 // ── Bracket de PREDICCIONES del jugador para Mundial 2026 ────────────────────
-// T1-T8 = los 8 mejores 3ºs ordenados por pts/DG/GF (asignados ya por getQualifiersFromPreds).
-// NOTA: La tabla oficial de asignación de FIFA aún no está publicada.
-// Se actualizará cuando FIFA confirme los cruces de repechaje.
+// T1-T8 = los 8 mejores 3ºs ordenados por pts/DG/GF.
+// Usa IDs sintéticos (R32_1, R16_1…) cuando aún no hay fixtures KO en Firestore.
 export function buildPredBracketWC26(fixtures, playerPreds, groups, numBest3rds = 8) {
   const qualifiers = getQualifiersFromPreds(playerPreds, fixtures, groups, numBest3rds);
-  // getQualifiersFromPreds ya asigna T1-T8 a los mejores 3ºs por pts/DG/GF
 
   const sort = (arr) => [...arr].sort((a, b) => a.id - b.id);
-  const r32Fx = sort(fixtures.filter(f => f.group === "R32"));
-  const r16Fx = sort(fixtures.filter(f => f.group === "R16"));
-  const qfFx  = sort(fixtures.filter(f => f.group === "QF"));
-  const sfFx  = sort(fixtures.filter(f => f.group === "SF"));
-  const finFx = fixtures.find(f => f.group === "FINAL") ?? null;
+  const r32Fx = sort(fixtures.filter(f => f.group === "R32" || f.stage === "LAST_32"));
+  const r16Fx = sort(fixtures.filter(f => f.group === "R16" || f.stage === "LAST_16"));
+  const qfFx  = sort(fixtures.filter(f => f.group === "QF"  || f.stage === "QUARTER_FINALS"));
+  const sfFx  = sort(fixtures.filter(f => f.group === "SF"  || f.stage === "SEMI_FINALS"));
+  const finFx = fixtures.find(f => f.group === "FINAL" || f.stage === "FINAL") ?? null;
+
+  const mkId = (prefix, i) => `${prefix}_${i + 1}`;
 
   const resolve = (slot) => qualifiers[slot] ?? { name: slot, flag: "❓", tbd: true };
 
@@ -412,48 +412,56 @@ export function buildPredBracketWC26(fixtures, playerPreds, groups, numBest3rds 
   const r32 = R32_SLOTS.map((slot, i) => {
     const teamA = resolve(slot.slotA), teamB = resolve(slot.slotB);
     const fx = r32Fx[i];
+    const id = fx?.id ?? slot.id;
     const home = teamA.name, away = teamB.name;
-    const winner = getPredWinner(home, away, fx?.id);
-    const p = fx ? playerPreds?.[fx.id] : null;
+    const winner = getPredWinner(home, away, id);
+    const p = playerPreds?.[id];
     const hasPred = home && away && home !== "?" && away !== "?" && p && p.h !== "" && p.h !== undefined;
-    return { id: fx?.id, home, away, predResult: hasPred ? p : null, winner };
+    return { id, home, away, predResult: hasPred ? p : null, winner };
   });
 
-  const r16 = r16Fx.map((fx, i) => {
+  const r16 = Array.from({ length: 8 }, (_, i) => {
+    const fx = r16Fx[i];
+    const id = fx?.id ?? mkId("R16", i);
     const home = r32[i * 2]?.winner ?? null;
     const away = r32[i * 2 + 1]?.winner ?? null;
-    const winner = getPredWinner(home, away, fx.id);
-    const p = playerPreds?.[fx.id];
+    const winner = getPredWinner(home, away, id);
+    const p = playerPreds?.[id];
     const hasPred = home && away && p && p.h !== "" && p.h !== undefined;
-    return { id: fx.id, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner };
+    return { id, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner };
   });
 
-  const qf = qfFx.map((fx, i) => {
+  const qf = Array.from({ length: 4 }, (_, i) => {
+    const fx = qfFx[i];
+    const id = fx?.id ?? mkId("QF", i);
     const home = r16[i * 2]?.winner ?? null;
     const away = r16[i * 2 + 1]?.winner ?? null;
-    const winner = getPredWinner(home, away, fx.id);
-    const p = playerPreds?.[fx.id];
+    const winner = getPredWinner(home, away, id);
+    const p = playerPreds?.[id];
     const hasPred = home && away && p && p.h !== "" && p.h !== undefined;
-    return { id: fx.id, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner };
+    return { id, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner };
   });
 
-  const sf = sfFx.map((fx, i) => {
+  const sf = Array.from({ length: 2 }, (_, i) => {
+    const fx = sfFx[i];
+    const id = fx?.id ?? mkId("SF", i);
     const home = qf[i * 2]?.winner ?? null;
     const away = qf[i * 2 + 1]?.winner ?? null;
-    const winner = getPredWinner(home, away, fx.id);
-    const p = playerPreds?.[fx.id];
+    const winner = getPredWinner(home, away, id);
+    const p = playerPreds?.[id];
     const hasPred = home && away && p && p.h !== "" && p.h !== undefined;
-    return { id: fx.id, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner };
+    return { id, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner };
   });
 
-  const final = finFx ? (() => {
+  const finalId = finFx?.id ?? "FINAL";
+  const final = (() => {
     const home = sf[0]?.winner ?? null;
     const away = sf[1]?.winner ?? null;
-    const winner = getPredWinner(home, away, finFx.id);
-    const p = playerPreds?.[finFx.id];
+    const winner = getPredWinner(home, away, finalId);
+    const p = playerPreds?.[finalId];
     const hasPred = home && away && p && p.h !== "" && p.h !== undefined;
-    return { id: finFx.id, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner };
-  })() : null;
+    return { id: finalId, home: home ?? "?", away: away ?? "?", predResult: hasPred ? p : null, winner };
+  })();
 
   return { r32, r16, qf, sf, final };
 }

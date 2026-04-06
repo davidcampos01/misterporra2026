@@ -128,6 +128,17 @@ async function firestoreRead(docPath) {
   };
 }
 
+// Mapeo de stages FDO a grupo interno
+const STAGE_TO_GROUP = {
+  "GROUP_STAGE": null, // se deriva de m.group
+  "LAST_32": "R32",
+  "LAST_16": "R16",
+  "QUARTER_FINALS": "QF",
+  "SEMI_FINALS": "SF",
+  "THIRD_PLACE": "3RD",
+  "FINAL": "FINAL",
+};
+
 // Convierte utcDate de FDO a fecha y hora en España (UTC+2 en verano)
 function fdoMatchToFixture(m) {
   const dt = new Date(m.utcDate);
@@ -139,7 +150,14 @@ function fdoMatchToFixture(m) {
   const hh = String(local.getUTCHours()).padStart(2, "0");
   const mm = String(local.getUTCMinutes()).padStart(2, "0");
   const timeES = `${hh}:${mm}`;
-  const group = m.group ? m.group.replace("GROUP_", "") : null;
+  // Para fase de grupos, usar la letra del grupo (GROUP_A → A)
+  // Para eliminatorias, usar el código interno (R32, R16, QF, SF, FINAL, 3RD)
+  let group = null;
+  if (m.stage === "GROUP_STAGE") {
+    group = m.group ? m.group.replace("GROUP_", "") : null;
+  } else {
+    group = STAGE_TO_GROUP[m.stage] ?? null;
+  }
   const home = m.homeTeam?.name ? (TEAM_MAP[m.homeTeam.name] ?? m.homeTeam.name) : "TBD";
   const away = m.awayTeam?.name ? (TEAM_MAP[m.awayTeam.name] ?? m.awayTeam.name) : "TBD";
   return { id: m.id, date, timeES, group, home, away, matchday: m.matchday ?? null, stage: m.stage ?? null };
