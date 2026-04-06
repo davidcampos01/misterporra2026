@@ -203,8 +203,8 @@ function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap 
   }, [fixtures, playerPreds, groups, tournament]);
 
   const ROUNDS = tournament.id === "mundial2026" ? [
-    { key: "r32", label: "32avos de Final" },
-    { key: "r16", label: "16avos de Final" },
+    { key: "r32", label: "16avos de Final" },
+    { key: "r16", label: "8avos de Final" },
     { key: "qf",  label: "Cuartos de Final" },
     { key: "sf",  label: "Semifinales" },
     { key: "final", label: "🏆 Final", isFinal: true },
@@ -244,8 +244,18 @@ function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap 
       }
     }
 
+    const isSmall = roundKey === "r32";
+    const cardStyle = isSmall
+      ? { minWidth: 150, maxWidth: 190 }
+      : { minWidth: 195, maxWidth: 260 };
+    const flagSize = isSmall ? 15 : 20;
+    const nameSize = isSmall ? 10 : 13;
+    const scoreInputStyle = isSmall ? {} : { width: 46, height: 46, fontSize: 20, borderRadius: 9 };
+    const penSize = isSmall ? { w: 28, h: 26, fs: 12 } : { w: 34, h: 30, fs: 14 };
+    const winnerSize = isSmall ? 9 : 11;
+
     return (
-      <div key={m.id} style={{ background: "#111120", border: `1px solid ${matchScore?.pts > 0 ? color.bg : "#1a1a2a"}`, borderRadius: 10, overflow: "hidden", minWidth: 155, maxWidth: 200 }}>
+      <div key={m.id} style={{ background: "#111120", border: `1px solid ${matchScore?.pts > 0 ? color.bg : "#1a1a2a"}`, borderRadius: 10, overflow: "hidden", ...cardStyle }}>
         {/* Header: resultado real (truncado) */}
         <div style={{ fontSize: 9, color: "#3a3a60", fontWeight: 700, letterSpacing: 1, padding: "4px 8px 3px", borderBottom: "1px solid #1a1a2a", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, overflow: "hidden" }}>
           {realMatch?.result ? (
@@ -260,40 +270,40 @@ function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap 
           )}
         </div>
         {!bothTeamsKnown ? (
-          <div style={{ padding: "12px 8px", textAlign: "center", color: "#2a2a50", fontSize: 10 }}>
+          <div style={{ padding: isSmall ? "12px 8px" : "18px 12px", textAlign: "center", color: "#2a2a50", fontSize: isSmall ? 10 : 11 }}>
             Clasifica el ganador<br />de la ronda anterior
           </div>
         ) : (
-          <div style={{ padding: "6px 8px", display: "flex", flexDirection: "column", gap: 3 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ fontSize: 15 }}>{homeFlag}</span>
-              <span style={{ fontSize: 10, flex: 1, color: "#d0d0e8", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.home}</span>
+          <div style={{ padding: isSmall ? "6px 8px" : "8px 10px", display: "flex", flexDirection: "column", gap: isSmall ? 3 : 5 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: isSmall ? 5 : 7 }}>
+              <span style={{ fontSize: flagSize }}>{homeFlag}</span>
+              <span style={{ fontSize: nameSize, flex: 1, color: "#d0d0e8", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.home}</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "3px 0" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <ScoreInput value={predH ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "h", v)} color={color.bg} />
+                <ScoreInput value={predH ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "h", v)} color={color.bg} style={scoreInputStyle} />
                 <span style={{ color: "#2a2a40", fontWeight: 800 }}>–</span>
-                <ScoreInput value={predA ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "a", v)} color={color.bg} />
+                <ScoreInput value={predA ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "a", v)} color={color.bg} style={scoreInputStyle} />
               </div>
               {isDraw && (
                 <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
                   <input type="number" min="0" max="99" value={penH}
                     onChange={e => setPred(activePlayerIdx, m.id, "penH", e.target.value)}
-                    placeholder="–" style={{ width: 28, height: 26, background: "#0a0a14", border: "1.5px solid #a066ff", borderRadius: 5, color: "#f0f0f8", fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700, textAlign: "center", outline: "none" }} />
+                    placeholder="–" style={{ width: penSize.w, height: penSize.h, background: "#0a0a14", border: "1.5px solid #a066ff", borderRadius: 5, color: "#f0f0f8", fontFamily: "'Space Mono',monospace", fontSize: penSize.fs, fontWeight: 700, textAlign: "center", outline: "none" }} />
                   <span style={{ fontSize: 8, color: "#a066ff", fontWeight: 800 }}>PEN</span>
                   <input type="number" min="0" max="99" value={penA}
                     onChange={e => setPred(activePlayerIdx, m.id, "penA", e.target.value)}
-                    placeholder="–" style={{ width: 28, height: 26, background: "#0a0a14", border: "1.5px solid #a066ff", borderRadius: 5, color: "#f0f0f8", fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700, textAlign: "center", outline: "none" }} />
+                    placeholder="–" style={{ width: penSize.w, height: penSize.h, background: "#0a0a14", border: "1.5px solid #a066ff", borderRadius: 5, color: "#f0f0f8", fontFamily: "'Space Mono',monospace", fontSize: penSize.fs, fontWeight: 700, textAlign: "center", outline: "none" }} />
                 </div>
               )}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ fontSize: 15 }}>{awayFlag}</span>
-              <span style={{ fontSize: 10, flex: 1, color: "#d0d0e8", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.away}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: isSmall ? 5 : 7 }}>
+              <span style={{ fontSize: flagSize }}>{awayFlag}</span>
+              <span style={{ fontSize: nameSize, flex: 1, color: "#d0d0e8", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.away}</span>
             </div>
             {predictedWinner && (
-              <div style={{ fontSize: 9, color: color.text, fontWeight: 800, textAlign: "center", letterSpacing: 1, textTransform: "uppercase", marginTop: 1 }}>
-                ✓ {predictedWinner}{isDraw ? " (pen)" : ""}
+              <div style={{ fontSize: winnerSize, color: color.text, fontWeight: 800, textAlign: "center", letterSpacing: 1, textTransform: "uppercase", marginTop: 1 }}>
+                Clasifica: {predictedWinner}{isDraw ? " (pen)" : ""}
               </div>
             )}
           </div>

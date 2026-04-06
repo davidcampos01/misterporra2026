@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export function ScoreInput({ value, onChange, color }) {
+export function ScoreInput({ value, onChange, color, style: extraStyle }) {
   const [local, setLocal] = useState(value);
 
   // Sincronizar cuando Firestore actualiza el valor desde fuera
@@ -18,6 +18,7 @@ export function ScoreInput({ value, onChange, color }) {
         border: `1.5px solid ${color || "#2a2a40"}`, borderRadius: 7,
         color: "#f0f0f8", fontFamily: "'Space Mono',monospace",
         fontSize: 17, fontWeight: 700, textAlign: "center", outline: "none",
+        ...extraStyle,
       }}
     />
   );
