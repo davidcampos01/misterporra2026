@@ -1,5 +1,38 @@
 import { getStandings } from "./scoring";
 
+// Tabla oficial FIFA WC2026: grupos elegibles para cada slot de tercero
+// Ningún tercero puede enfrentarse al 1º de su propio grupo
+const WC26_THIRD_SLOT_ELIGIBLE = {
+  T1: new Set(["A","B","C","D","F"]),   // enfrenta a 1E
+  T2: new Set(["C","D","F","G","H"]),   // enfrenta a 1I
+  T3: new Set(["B","E","F","I","J"]),   // enfrenta a 1D
+  T4: new Set(["A","E","H","I","J"]),   // enfrenta a 1G
+  T5: new Set(["C","E","F","H","I"]),   // enfrenta a 1A
+  T6: new Set(["E","H","I","J","K"]),   // enfrenta a 1L
+  T7: new Set(["E","F","G","I","J"]),   // enfrenta a 1B
+  T8: new Set(["D","E","I","J","L"]),   // enfrenta a 1K
+};
+
+// Asigna los 8 mejores terceros a los slots T1-T8 respetando las restricciones de grupo.
+// Usa backtracking: el mejor tercero va al primer slot compatible.
+function assignThirdsWC26(rankedThirds) {
+  const slotKeys = ["T1","T2","T3","T4","T5","T6","T7","T8"];
+  const assignment = {};
+  function bt(idx) {
+    if (idx === rankedThirds.length) return true;
+    const t = rankedThirds[idx];
+    for (const s of slotKeys) {
+      if (assignment[s] || !WC26_THIRD_SLOT_ELIGIBLE[s]?.has(t.groupLetter)) continue;
+      assignment[s] = t;
+      if (bt(idx + 1)) return true;
+      delete assignment[s];
+    }
+    return false;
+  }
+  bt(0);
+  return assignment;
+}
+
 // Obtiene clasificados: 1º y 2º de cada grupo + N mejores 3ºs
 // fixtures y groups se pasan desde el contexto de torneo
 export function getQualifiers(results, fixtures, groups, numBest3rds = 8) {
@@ -21,9 +54,21 @@ export function getQualifiers(results, fixtures, groups, numBest3rds = 8) {
     slots[`3${g}`] = { ...st[2], slot: `3${g}`, pts3: st[2]?.pts, gf3: st[2]?.gf, gd3: (st[2]?.gf ?? 0) - (st[2]?.ga ?? 0) };
   });
 
-  const thirds = Object.keys(groups).map(g => slots[`3${g}`]).filter(Boolean);
+  const thirds = Object.keys(groups).map(g => ({ ...slots[`3${g}`], groupLetter: g })).filter(Boolean);
   thirds.sort((a, b) => (b.pts3 - a.pts3) || (b.gd3 - a.gd3) || (b.gf3 - a.gf3));
-  thirds.slice(0, numBest3rds).forEach((t, i) => { slots[`T${i + 1}`] = { ...t, slot: `T${i + 1}` }; });
+  const top = thirds.slice(0, numBest3rds);
+  if (numBest3rds === 8) {
+    // WC26: asignación con tabla FIFA para no emparejar mismo grupo
+    const assigned = assignThirdsWC26(top);
+    Object.entries(assigned).forEach(([k, t]) => { slots[k] = { ...t, slot: k }; });
+    // Fallback: slots sin asignar (no debería ocurrir con datos correctos)
+    let fi = 0;
+    ["T1","T2","T3","T4","T5","T6","T7","T8"].forEach(k => {
+      if (!slots[k]) { slots[k] = { ...top[fi++], slot: k }; }
+    });
+  } else {
+    top.forEach((t, i) => { slots[`T${i + 1}`] = { ...t, slot: `T${i + 1}` }; });
+  }
 
   return slots;
 }
@@ -49,9 +94,19 @@ export function getQualifiersFromPreds(playerPreds, fixtures, groups, numBest3rd
     slots[`2${g}`] = { ...st[1], slot: `2${g}` };
     slots[`3${g}`] = { ...st[2], slot: `3${g}`, pts3: st[2]?.pts, gf3: st[2]?.gf, gd3: (st[2]?.gf ?? 0) - (st[2]?.ga ?? 0) };
   });
-  const thirds = Object.keys(groups).map(g => slots[`3${g}`]).filter(Boolean);
+  const thirds = Object.keys(groups).map(g => ({ ...slots[`3${g}`], groupLetter: g })).filter(Boolean);
   thirds.sort((a, b) => (b.pts3 - a.pts3) || (b.gd3 - a.gd3) || (b.gf3 - a.gf3));
-  thirds.slice(0, numBest3rds).forEach((t, i) => { slots[`T${i + 1}`] = { ...t, slot: `T${i + 1}` }; });
+  const top = thirds.slice(0, numBest3rds);
+  if (numBest3rds === 8) {
+    const assigned = assignThirdsWC26(top);
+    Object.entries(assigned).forEach(([k, t]) => { slots[k] = { ...t, slot: k }; });
+    let fi = 0;
+    ["T1","T2","T3","T4","T5","T6","T7","T8"].forEach(k => {
+      if (!slots[k]) { slots[k] = { ...top[fi++], slot: k }; }
+    });
+  } else {
+    top.forEach((t, i) => { slots[`T${i + 1}`] = { ...t, slot: `T${i + 1}` }; });
+  }
   return slots;
 }
 

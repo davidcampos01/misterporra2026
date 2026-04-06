@@ -245,62 +245,55 @@ function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap 
     }
 
     return (
-      <div key={m.id} style={{ background: "#111120", border: `1px solid ${matchScore?.pts > 0 ? color.bg : "#1a1a2a"}`, borderRadius: 10, overflow: "hidden", minWidth: 165 }}>
-        <div style={{ fontSize: 9, color: "#3a3a60", fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", padding: "4px 8px", borderBottom: "1px solid #1a1a2a" }}>
-          {realMatch ? (
-            <span style={{ color: matchScore?.pts > 0 ? "#06d6a0" : "#3a3a60" }}>
-              <span style={{ color: "#8080b0", marginRight: 3 }}>
-                {flagMap?.[realMatch.home] ?? ""}{realMatch.home}
-                {" vs "}
-                {realMatch.away}{flagMap?.[realMatch.away] ?? ""}
+      <div key={m.id} style={{ background: "#111120", border: `1px solid ${matchScore?.pts > 0 ? color.bg : "#1a1a2a"}`, borderRadius: 10, overflow: "hidden", minWidth: 155, maxWidth: 200 }}>
+        {/* Header: resultado real (truncado) */}
+        <div style={{ fontSize: 9, color: "#3a3a60", fontWeight: 700, letterSpacing: 1, padding: "4px 8px 3px", borderBottom: "1px solid #1a1a2a", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, overflow: "hidden" }}>
+          {realMatch?.result ? (
+            <>
+              <span style={{ color: "#5050a0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, fontSize: 8 }}>
+                {flagMap?.[realMatch.home] ?? ""} {realMatch.home} {realMatch.result.homeScore}–{realMatch.result.awayScore} {realMatch.away} {flagMap?.[realMatch.away] ?? ""}
               </span>
-              {realMatch.result ? (
-                <>
-                  {" · "}{realMatch.result.homeScore}–{realMatch.result.awayScore}
-                  {realMatch.result.penaltyHome !== undefined && realMatch.result.penaltyHome !== "" && <span> ({realMatch.result.penaltyHome}-{realMatch.result.penaltyAway}p)</span>}
-                  {matchScore?.pts > 0 && <span style={{ color: "#f5c842", marginLeft: 4 }}>+{matchScore.pts}pts</span>}
-                </>
-              ) : <span style={{ color: "#3a3a60" }}> · sin resultado</span>}
-            </span>
-          ) : <span style={{ color: "#3a3a60" }}>sin resultado aún</span>}
+              {matchScore?.pts > 0 && <span style={{ color: "#f5c842", fontWeight: 800, flexShrink: 0 }}>+{matchScore.pts}</span>}
+            </>
+          ) : (
+            <span style={{ color: "#3a3a60" }}>sin resultado</span>
+          )}
         </div>
         {!bothTeamsKnown ? (
-          <div style={{ padding: "14px 10px", textAlign: "center", color: "#2a2a50", fontSize: 10, letterSpacing: 1 }}>
+          <div style={{ padding: "12px 8px", textAlign: "center", color: "#2a2a50", fontSize: 10 }}>
             Clasifica el ganador<br />de la ronda anterior
           </div>
         ) : (
-          <div style={{ padding: "6px 8px", display: "flex", flexDirection: "column", gap: 4 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 16, minWidth: 20 }}>{homeFlag}</span>
-              <span style={{ fontSize: 11, flex: 1, color: "#d0d0e8", fontWeight: 500 }}>{m.home}</span>
+          <div style={{ padding: "6px 8px", display: "flex", flexDirection: "column", gap: 3 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ fontSize: 15 }}>{homeFlag}</span>
+              <span style={{ fontSize: 10, flex: 1, color: "#d0d0e8", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.home}</span>
             </div>
-            {/* Inputs marcador */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "2px 0" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "3px 0" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <ScoreInput value={predH ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "h", v)} color={color.bg} />
                 <span style={{ color: "#2a2a40", fontWeight: 800 }}>–</span>
                 <ScoreInput value={predA ?? ""} onChange={v => setPred(activePlayerIdx, m.id, "a", v)} color={color.bg} />
               </div>
-              {/* Penaltis: solo si empate */}
               {isDraw && (
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
                   <input type="number" min="0" max="99" value={penH}
                     onChange={e => setPred(activePlayerIdx, m.id, "penH", e.target.value)}
-                    placeholder="–" style={{ width: 30, height: 28, background: "#0a0a14", border: "1.5px solid #a066ff", borderRadius: 6, color: "#f0f0f8", fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, textAlign: "center", outline: "none" }} />
-                  <span style={{ fontSize: 9, color: "#a066ff", fontWeight: 800, letterSpacing: 1 }}>PEN</span>
+                    placeholder="–" style={{ width: 28, height: 26, background: "#0a0a14", border: "1.5px solid #a066ff", borderRadius: 5, color: "#f0f0f8", fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700, textAlign: "center", outline: "none" }} />
+                  <span style={{ fontSize: 8, color: "#a066ff", fontWeight: 800 }}>PEN</span>
                   <input type="number" min="0" max="99" value={penA}
                     onChange={e => setPred(activePlayerIdx, m.id, "penA", e.target.value)}
-                    placeholder="–" style={{ width: 30, height: 28, background: "#0a0a14", border: "1.5px solid #a066ff", borderRadius: 6, color: "#f0f0f8", fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, textAlign: "center", outline: "none" }} />
+                    placeholder="–" style={{ width: 28, height: 26, background: "#0a0a14", border: "1.5px solid #a066ff", borderRadius: 5, color: "#f0f0f8", fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700, textAlign: "center", outline: "none" }} />
                 </div>
               )}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 16, minWidth: 20 }}>{awayFlag}</span>
-              <span style={{ fontSize: 11, flex: 1, color: "#d0d0e8", fontWeight: 500 }}>{m.away}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ fontSize: 15 }}>{awayFlag}</span>
+              <span style={{ fontSize: 10, flex: 1, color: "#d0d0e8", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.away}</span>
             </div>
             {predictedWinner && (
-              <div style={{ fontSize: 9, color: color.text, fontWeight: 800, textAlign: "center", letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>
-                Clasifica: {predictedWinner}{isDraw ? " (pen)" : ""}
+              <div style={{ fontSize: 9, color: color.text, fontWeight: 800, textAlign: "center", letterSpacing: 1, textTransform: "uppercase", marginTop: 1 }}>
+                ✓ {predictedWinner}{isDraw ? " (pen)" : ""}
               </div>
             )}
           </div>
