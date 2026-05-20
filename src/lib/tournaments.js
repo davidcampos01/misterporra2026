@@ -2,6 +2,20 @@ import { GROUPS_DATA }        from "../constants/groups";
 import { EURO2024_FIXTURES }  from "../constants/euro2024Fixtures";
 import { EURO2024_GROUPS }    from "../constants/euro2024Groups";
 
+// Configuración de puntuación por defecto para cada torneo
+export const DEFAULT_SCORING = {
+  euro2024: {
+    match: { hit1x2: 4, hitDiff: 2, hitExact: 4 },
+    standings: { position: [4, 3, 2, 1], qualified: 5 },
+    knockout: { qf: 9, sf: 11, final: 13, runner: 10, champion: 15 },
+  },
+  mundial2026: {
+    match: { hit1x2: 4, hitDiff: 2, hitExact: 4 },
+    standings: { position: [4, 3, 2, 1], qualified: 5 },
+    knockout: { qf: 9, sf: 11, final: 13, runner: 10, champion: 15 },
+  },
+};
+
 export const TOURNAMENTS = {
   euro2024: {
     id:           "euro2024",

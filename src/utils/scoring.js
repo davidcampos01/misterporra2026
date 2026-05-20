@@ -37,33 +37,24 @@ export function get1X2(h, a) {
   return h > a ? "1" : h < a ? "2" : "X";
 }
 
-export function scoreMatch(rh, ra, ph, pa) {
+const DEFAULT_MATCH_CONFIG = { hit1x2: 4, hitDiff: 2, hitExact: 4 };
+
+export function scoreMatch(rh, ra, ph, pa, matchConfig = DEFAULT_MATCH_CONFIG) {
+  const cfg = matchConfig;
   const hit1x2  = get1X2(rh, ra) === get1X2(ph, pa);
   const hitDiff  = (rh - ra) === (ph - pa);
   const hitExact = rh === ph && ra === pa;
   let pts = 0;
-  if (hit1x2) { pts += 4; if (hitDiff) { pts += 2; if (hitExact) pts += 4; } }
+  if (hit1x2) { pts += cfg.hit1x2; if (hitDiff) { pts += cfg.hitDiff; if (hitExact) pts += cfg.hitExact; } }
   return { pts, hit1x2, hitDiff, hitExact };
 }
 
 // ── Puntuación Eliminatorias ────────────────────────────────────────────────
-// Por cada equipo que el jugador pronostica que avanza a una ronda:
-//   Clasificado a QF   → +9 pts
-//   Clasificado a SF   → +11 pts
-//   Clasificado a Final → +13 pts
-//   Subcampeón         → +10 pts
-//   Campeón            → +15 pts
-// Puntuación de partido (1X2/exacto): solo si el emparejamiento coincide con el real
-// Parámetros:
-//   realBracket   → { r16, qf, sf, final } con winner en cada partido
-//   predBracket   → igual pero construido desde preds del jugador
-//   predResults   → { [fixtureId]: { h, a } } predicciones de resultado
-//   realResults   → results de Firestore
-//   realFixtures  → fixtures reales con group R16/QF/SF/FINAL
-const KO_ROUND_PTS = { qf: 9, sf: 11, final: 13, champion: 15, runner: 10 };
+const DEFAULT_KO_CONFIG = { qf: 9, sf: 11, final: 13, champion: 15, runner: 10 };
 
-export function scoreKnockout(realBracket, predBracket) {
+export function scoreKnockout(realBracket, predBracket, koConfig = DEFAULT_KO_CONFIG) {
   if (!realBracket || !predBracket) return { total: 0, detail: [] };
+  const KO_ROUND_PTS = koConfig;
 
   let total = 0;
   const detail = [];
@@ -107,29 +98,29 @@ export function scoreKnockout(realBracket, predBracket) {
 }
 
 // Puntuación de partido KO: solo si el emparejamiento coincide (mismos equipos, en algún orden)
-export function scoreKnockoutMatch(realMatch, predResult) {
+export function scoreKnockoutMatch(realMatch, predResult, matchConfig) {
   if (!realMatch?.result || !predResult) return null;
   const { homeScore: rh, awayScore: ra } = realMatch.result;
   if (rh === "" || rh === undefined || ra === "" || ra === undefined) return null;
   const ph = predResult.h, pa = predResult.a;
   if (ph === "" || ph === undefined || pa === "" || pa === undefined) return null;
-  return scoreMatch(+rh, +ra, +ph, +pa);
+  return scoreMatch(+rh, +ra, +ph, +pa, matchConfig);
 }
 // Posicion: 1º=4pts, 2º=3pts, 3º=2pts, 4º=1pt
 // Clasificado a R16: +5pts por cada equipo pronosticado en top-3 que realmente clasifica
 // Para 3ºs: solo bonus si el jugador también los predijo entre los mejores 3ºs (predQualifiedSet)
-const POSITION_PTS = [4, 3, 2, 1];
-export function scoreStandings(realOrder, predictedOrder, qualifiedSet = new Set(), predQualifiedSet = null) {
+const DEFAULT_STANDINGS_CONFIG = { position: [4, 3, 2, 1], qualified: 5 };
+export function scoreStandings(realOrder, predictedOrder, qualifiedSet = new Set(), predQualifiedSet = null, standingsConfig = DEFAULT_STANDINGS_CONFIG) {
+  const POSITION_PTS = standingsConfig.position;
+  const qualifiedPts = standingsConfig.qualified;
   let total = 0;
   const hits = [];
   realOrder.forEach((realName, i) => {
     const predName = predictedOrder[i];
     const correctPos = predName === realName;
-    const positionPts = correctPos ? POSITION_PTS[i] : 0;
-    // Para 1º/2º: el equipo siempre clasifica si acaba 1º/2º (bonus si realmente clasificó)
-    // Para 3º: solo si el jugador lo predijo entre los mejores 3ºs Y realmente clasificó
+    const positionPts = correctPos ? (POSITION_PTS[i] ?? 0) : 0;
     const predWouldQualify = i < 2 ? true : (predQualifiedSet ? predQualifiedSet.has(predName) : true);
-    const qualBonus = i < 3 && predName && predWouldQualify && qualifiedSet.has(predName) ? 5 : 0;
+    const qualBonus = i < 3 && predName && predWouldQualify && qualifiedSet.has(predName) ? qualifiedPts : 0;
     const pts = positionPts + qualBonus;
     total += pts;
     hits.push({ pos: i + 1, realName, predName, correctPos, positionPts, qualBonus, pts });

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PLAYER_COLORS } from "../constants/theme";
+import { DEFAULT_SCORING } from "../lib/tournaments";
 
 function PlayerNameInput({ name, onSave }) {
   const [local, setLocal] = useState(name);
@@ -106,9 +107,119 @@ function PendingTeamRow({ placeholder, overrideName, overrideFlag, onSave }) {
   );
 }
 
-export function SetupTab({ players, scores, standingsScores, koScores, renamePlayer, removePlayer, addPlayer, tournament, onSync, teamOverrides = {}, setTeamOverride }) {
+function ScoringInput({ label, value, onChange }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+      <span style={{ fontSize: 12, color: "#8080a0" }}>{label}</span>
+      <input
+        type="number"
+        min={0}
+        value={value}
+        onChange={e => onChange(Number(e.target.value) || 0)}
+        style={{ width: 52, background: "#080811", border: "1px solid #2a2a40", borderRadius: 6, color: "#f0f0f8", fontSize: 13, padding: "4px 6px", textAlign: "center", outline: "none", fontFamily: "'Space Mono',monospace" }}
+      />
+    </div>
+  );
+}
+
+function ScoringConfigSection({ scoringConfig, tournamentId, editing, setEditing, onSave }) {
+  const defaults = DEFAULT_SCORING[tournamentId] ?? DEFAULT_SCORING.mundial2026;
+  const cfg = scoringConfig ?? defaults;
+  const [local, setLocal] = useState(cfg);
+
+  const updateMatch = (key, val) => setLocal(p => ({ ...p, match: { ...p.match, [key]: val } }));
+  const updateStandings = (key, val) => setLocal(p => ({ ...p, standings: { ...p.standings, [key]: val } }));
+  const updatePosition = (idx, val) => setLocal(p => {
+    const pos = [...p.standings.position];
+    pos[idx] = val;
+    return { ...p, standings: { ...p.standings, position: pos } };
+  });
+  const updateKnockout = (key, val) => setLocal(p => ({ ...p, knockout: { ...p.knockout, [key]: val } }));
+
+  const maxMatch = cfg.match.hit1x2 + cfg.match.hitDiff + cfg.match.hitExact;
+
+  if (!editing) {
+    return (
+      <div style={{ background: "#111120", border: "1px solid #1a1a2a", borderRadius: 14, padding: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 18, letterSpacing: 2, color: "#4cc9f0" }}>📋 Sistema Misterporra</div>
+          <button onClick={() => { setLocal(cfg); setEditing(true); }} style={{ background: "rgba(76,201,240,.1)", border: "1px solid rgba(76,201,240,.3)", borderRadius: 6, color: "#4cc9f0", fontSize: 11, padding: "4px 10px", cursor: "pointer", fontWeight: 700 }}>✏️ Editar</button>
+        </div>
+        {[
+          { phase: "Fase de Grupos", color: "#06d6a0", items: [
+            `Acertar 1X2: +${cfg.match.hit1x2} pts`,
+            `Además diferencia de goles: +${cfg.match.hitDiff} pts`,
+            `Además resultado exacto: +${cfg.match.hitExact} pts`,
+            `Máximo por partido: ${maxMatch} pts`,
+          ]},
+          { phase: "Fase Intermedia · Clasificados", color: "#f5c842", items: [
+            `Clasificado a 16avos: +${cfg.standings.qualified} pts/selección`,
+            `1º de grupo: +${cfg.standings.position[0]} pts · 2º: +${cfg.standings.position[1]} pts`,
+            `3º de grupo: +${cfg.standings.position[2]} pts · 4º: +${cfg.standings.position[3]} pts`,
+          ]},
+          { phase: "Eliminatorias", color: "#ff6b6b", items: [
+            `1X2 en eliminatoria: +${cfg.match.hit1x2} pts`,
+            `Además diferencia goles: +${cfg.match.hitDiff} pts`,
+            `Además resultado exacto: +${cfg.match.hitExact} pts`,
+            `Clasificado cuartos: +${cfg.knockout.qf} pts`,
+            `Clasificado semis: +${cfg.knockout.sf} pts`,
+            `Clasificado final: +${cfg.knockout.final} pts`,
+            `Subcampeón: +${cfg.knockout.runner} pts · Campeón: +${cfg.knockout.champion} pts`,
+          ]},
+        ].map(s => (
+          <div key={s.phase} style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: s.color, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6, borderLeft: `3px solid ${s.color}`, paddingLeft: 8 }}>{s.phase}</div>
+            {s.items.map(item => (
+              <div key={item} style={{ fontSize: 12, color: "#8080a0", paddingLeft: 12, marginBottom: 3 }}>· {item}</div>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: "#111120", border: "1px solid rgba(76,201,240,.4)", borderRadius: 14, padding: 18 }}>
+      <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 18, letterSpacing: 2, color: "#4cc9f0", marginBottom: 14 }}>📋 Configurar Puntuaciones</div>
+
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: "#06d6a0", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8, borderLeft: "3px solid #06d6a0", paddingLeft: 8 }}>Partidos (Grupo + Eliminatorias)</div>
+        <ScoringInput label="Acertar 1X2" value={local.match.hit1x2} onChange={v => updateMatch("hit1x2", v)} />
+        <ScoringInput label="Además diferencia goles" value={local.match.hitDiff} onChange={v => updateMatch("hitDiff", v)} />
+        <ScoringInput label="Además resultado exacto" value={local.match.hitExact} onChange={v => updateMatch("hitExact", v)} />
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: "#f5c842", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8, borderLeft: "3px solid #f5c842", paddingLeft: 8 }}>Clasificación de Grupo</div>
+        <ScoringInput label="1º posición correcta" value={local.standings.position[0]} onChange={v => updatePosition(0, v)} />
+        <ScoringInput label="2º posición correcta" value={local.standings.position[1]} onChange={v => updatePosition(1, v)} />
+        <ScoringInput label="3º posición correcta" value={local.standings.position[2]} onChange={v => updatePosition(2, v)} />
+        <ScoringInput label="4º posición correcta" value={local.standings.position[3]} onChange={v => updatePosition(3, v)} />
+        <ScoringInput label="Clasificado a siguiente ronda" value={local.standings.qualified} onChange={v => updateStandings("qualified", v)} />
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: "#ff6b6b", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8, borderLeft: "3px solid #ff6b6b", paddingLeft: 8 }}>Eliminatorias (Avance)</div>
+        <ScoringInput label="Clasificado a Cuartos" value={local.knockout.qf} onChange={v => updateKnockout("qf", v)} />
+        <ScoringInput label="Clasificado a Semis" value={local.knockout.sf} onChange={v => updateKnockout("sf", v)} />
+        <ScoringInput label="Clasificado a Final" value={local.knockout.final} onChange={v => updateKnockout("final", v)} />
+        <ScoringInput label="Subcampeón" value={local.knockout.runner} onChange={v => updateKnockout("runner", v)} />
+        <ScoringInput label="Campeón" value={local.knockout.champion} onChange={v => updateKnockout("champion", v)} />
+      </div>
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={() => { onSave(local); setEditing(false); }} style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "rgba(6,214,160,.15)", border: "1px solid rgba(6,214,160,.4)", color: "#06d6a0", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>✓ Guardar</button>
+        <button onClick={() => setEditing(false)} style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "rgba(255,107,107,.1)", border: "1px solid rgba(255,107,107,.3)", color: "#ff6b6b", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Cancelar</button>
+      </div>
+      <button onClick={() => { setLocal(defaults); }} style={{ width: "100%", marginTop: 8, padding: "8px 0", borderRadius: 8, background: "rgba(76,201,240,.07)", border: "1px solid rgba(76,201,240,.2)", color: "#4cc9f0", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>↺ Restaurar valores por defecto</button>
+    </div>
+  );
+}
+
+export function SetupTab({ players, scores, standingsScores, koScores, renamePlayer, removePlayer, addPlayer, tournament, onSync, teamOverrides = {}, setTeamOverride, scoringConfig, onScoringConfigChange }) {
   const [syncState, setSyncState] = useState(null); // null | "loading" | "ok" | "error"
   const [syncMsg, setSyncMsg] = useState("");
+  const [editingScoring, setEditingScoring] = useState(false);
 
   async function handleSync() {
     setSyncState("loading");
@@ -241,41 +352,13 @@ export function SetupTab({ players, scores, standingsScores, koScores, renamePla
       <PendingTeamsSection tournament={tournament} teamOverrides={teamOverrides} setTeamOverride={setTeamOverride} />
 
       {/* Sistema de puntuación */}
-      <div style={{ background: "#111120", border: "1px solid #1a1a2a", borderRadius: 14, padding: 18 }}>
-        <div style={{ fontFamily: "'Oswald',sans-serif", fontSize: 18, letterSpacing: 2, color: "#4cc9f0", marginBottom: 12 }}>📋 Sistema Misterporra</div>
-        {[
-          { phase: "Fase de Grupos · 72 partidos", color: "#06d6a0", items: [
-            "Acertar 1X2: +4 pts",
-            "Además diferencia de goles: +2 pts",
-            "Además resultado exacto: +4 pts",
-            "Máximo por partido: 10 pts",
-          ]},
-          { phase: "Fase Intermedia · Clasificados", color: "#f5c842", items: [
-            "Clasificado a 16avos: +5 pts/selección",
-            "1º de grupo: +4 pts · 2º: +3 pts",
-            "3º de grupo: +2 pts · 4º: +1 pt",
-          ]},
-          { phase: "Eliminatorias · 32 partidos", color: "#ff6b6b", items: [
-            "1X2 en eliminatoria acertada: +4 pts",
-            "Además diferencia goles: +2 pts",
-            "Además resultado exacto: +4 pts",
-            "Clasificado cuartos: +9 pts",
-            "Clasificado semis: +11 pts",
-            "Clasificado final: +13 pts",
-            "Subcampeón: +10 pts · Campeón: +15 pts",
-          ]},
-        ].map(s => (
-          <div key={s.phase} style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: s.color, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6, borderLeft: `3px solid ${s.color}`, paddingLeft: 8 }}>{s.phase}</div>
-            {s.items.map(item => (
-              <div key={item} style={{ fontSize: 12, color: "#8080a0", paddingLeft: 12, marginBottom: 3 }}>· {item}</div>
-            ))}
-          </div>
-        ))}
-        <div style={{ background: "rgba(76,201,240,.07)", border: "1px solid rgba(76,201,240,.2)", borderRadius: 8, padding: 10, fontSize: 11, color: "#4cc9f0", marginTop: 6, lineHeight: 1.6 }}>
-          ⚠️ Equipos con * son repechajes pendientes (UEFA y Repesca Internacional, definidos en marzo 2026).
-        </div>
-      </div>
+      <ScoringConfigSection
+        scoringConfig={scoringConfig}
+        tournamentId={tournament.id}
+        editing={editingScoring}
+        setEditing={setEditingScoring}
+        onSave={onScoringConfigChange}
+      />
 
       {/* Sincronización de resultados */}
       <div style={{ background: "#111120", border: "1px solid #1a1a2a", borderRadius: 14, padding: 18, marginTop: 14 }}>

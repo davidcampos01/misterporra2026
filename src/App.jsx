@@ -5,7 +5,7 @@ import { css } from "./styles/global";
 import { useGameState } from "./hooks/useGameState";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TournamentContext } from "./context/TournamentContext";
-import { TOURNAMENTS } from "./lib/tournaments";
+import { TOURNAMENTS, DEFAULT_SCORING } from "./lib/tournaments";
 import { SetupTab } from "./tabs/SetupTab";
 import { CalendarioTab } from "./tabs/CalendarioTab";
 import { GruposTab } from "./tabs/GruposTab";
@@ -49,7 +49,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
   const [tab, setTab] = useState("calendario");
   const [activePlayerIdx, setActivePlayerIdx] = useState(0);
 
-  const { gameState, fbError, setResult, setResults, setPred, addPlayer, removePlayer, renamePlayer, setTeamOverride } = useGameState(tournamentId);
+  const { gameState, fbError, setResult, setResults, setPred, addPlayer, removePlayer, renamePlayer, setTeamOverride, setScoringConfig } = useGameState(tournamentId);
 
   // Usar fixtures de Firestore solo si el torneo no tiene fixtures estáticas (mundial2026)
   // Para euro2024 siempre usar las estáticas para que los IDs de resultados coincidan
@@ -70,6 +70,9 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
 
   // Equipos pendientes resueltos (se guardan en Firestore como teamOverrides)
   const teamOverrides = gameState?.teamOverrides ?? {};
+
+  // Configuración de puntuación (configurable por torneo, guardada en Firestore)
+  const scoringConfig = gameState?.scoringConfig ?? DEFAULT_SCORING[tournamentId] ?? DEFAULT_SCORING.mundial2026;
 
   const fixtures = useMemo(() => {
     // Mapa grupo → placeholder para sustituir "TBD" de Firestore por el nombre real del placeholder
@@ -115,12 +118,12 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
       const r = results[m.id];
       const p = predictions[pidx]?.[m.id];
       if (!r || r.homeScore === "" || r.awayScore === "" || !p || p.h === "" || p.h === undefined) return;
-      const result = scoreMatch(+r.homeScore, +r.awayScore, +p.h, +p.a);
+      const result = scoreMatch(+r.homeScore, +r.awayScore, +p.h, +p.a, scoringConfig.match);
       total += result.pts;
       if (result.pts > 0) detail.push({ m, ...result });
     });
     return { total, detail };
-  }), [results, predictions, players, fixtures]);
+  }), [results, predictions, players, fixtures, scoringConfig]);
 
   const standings = useMemo(() => {
     const out = {};
@@ -190,12 +193,12 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
         return r && r.homeScore !== "" && r.homeScore !== undefined;
       });
       if (!hasRealResults) return;
-      const sc = scoreStandings(realOrder, predOrder, qualifiedTeams, predQualSet);
+      const sc = scoreStandings(realOrder, predOrder, qualifiedTeams, predQualSet, scoringConfig.standings);
       total += sc.total;
       if (sc.total > 0) detail.push({ group: g, ...sc });
     });
     return { total, detail };
-  }), [standings, predictions, players, results, qualifiedTeams, groups, fixtures, tournament]);
+  }), [standings, predictions, players, results, qualifiedTeams, groups, fixtures, tournament, scoringConfig]);
 
   const koScores = useMemo(() => players.map((_, pidx) => {
     let predBr = null;
@@ -204,7 +207,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
     } else if (tournament.id === "mundial2026") {
       predBr = buildPredBracketWC26(fixtures, predictions[pidx] ?? {}, groups, tournament.numBest3rds);
     }
-    const sc = scoreKnockout(realBracket, predBr);
+    const sc = scoreKnockout(realBracket, predBr, scoringConfig.knockout);
     // Tambien puntuar resultados de partidos KO cuando los equipos coinciden
     if (realBracket && predBr) {
       const rounds = ["r16", "qf", "sf"];
@@ -217,7 +220,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
           if (rh === "" || rh === undefined) return;
           const pred = predictions[pidx]?.[realM.id];
           if (!pred || pred.h === "" || pred.h === undefined) return;
-          const res = scoreMatch(+rh, +ra, +pred.h, +pred.a);
+          const res = scoreMatch(+rh, +ra, +pred.h, +pred.a, scoringConfig.match);
           if (res.pts > 0) {
             sc.total += res.pts;
             sc.detail.push({ team: `${realM.home} vs ${realM.away}`, round, pts: res.pts });
@@ -233,7 +236,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
           if (rh !== "" && rh !== undefined) {
             const pred = predictions[pidx]?.[realM.id];
             if (pred && pred.h !== "" && pred.h !== undefined) {
-              const res = scoreMatch(+rh, +ra, +pred.h, +pred.a);
+              const res = scoreMatch(+rh, +ra, +pred.h, +pred.a, scoringConfig.match);
               if (res.pts > 0) {
                 sc.total += res.pts;
                 sc.detail.push({ team: `${realM.home} vs ${realM.away}`, round: "final", pts: res.pts });
@@ -244,7 +247,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
       }
     }
     return sc;
-  }), [realBracket, predictions, players, fixtures, groups, tournament]);
+  }), [realBracket, predictions, players, fixtures, groups, tournament, scoringConfig]);
 
   const handleRemovePlayer = (idx) => {
     removePlayer(idx, players, predictions);
@@ -271,7 +274,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
   }
 
   return (
-    <TournamentContext.Provider value={{ fixtures, groups, tournament }}>
+    <TournamentContext.Provider value={{ fixtures, groups, tournament, scoringConfig }}>
       <div style={{ fontFamily: "'DM Sans',sans-serif", background: "#080811", minHeight: "100vh", color: "#f0f0f8", paddingBottom: 80 }}>
         <style>{css}</style>
 
@@ -298,7 +301,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
         </nav>
 
         {tab === "setup" && (
-          <SetupTab players={players} scores={scores} standingsScores={standingsScores} koScores={koScores} renamePlayer={(idx, name) => renamePlayer(idx, name, players)} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players, predictions)} tournament={tournament} onSync={(newResults) => setResults({ ...results, ...newResults })} teamOverrides={teamOverrides} setTeamOverride={setTeamOverride} />
+          <SetupTab players={players} scores={scores} standingsScores={standingsScores} koScores={koScores} renamePlayer={(idx, name) => renamePlayer(idx, name, players)} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players, predictions)} tournament={tournament} onSync={(newResults) => setResults({ ...results, ...newResults })} teamOverrides={teamOverrides} setTeamOverride={setTeamOverride} scoringConfig={scoringConfig} onScoringConfigChange={setScoringConfig} />
         )}
         {tab === "calendario" && (
           <CalendarioTab results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} flagMap={flagMap} />

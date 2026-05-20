@@ -4,7 +4,7 @@ import { ScoreInput } from "./ScoreInput";
 import { useTournament } from "../context/TournamentContext";
 
 export function MatchRow({ match, resultData, onResultChange, predictions, players, activePlayerIdx, onPredChange, mode, onDetail, phaseLabel, phaseColor, flagMap }) {
-  const { groups } = useTournament();
+  const { groups, scoringConfig } = useTournament();
   const rh = resultData?.homeScore ?? "";
   const ra = resultData?.awayScore ?? "";
   const isPending = match.home.includes("*") || match.away.includes("*");
@@ -75,7 +75,7 @@ export function MatchRow({ match, resultData, onResultChange, predictions, playe
               const pa = pred?.a;
               const hasPred = ph !== undefined && ph !== "" && pa !== undefined && pa !== "";
               const hasReal = rh !== "" && ra !== "";
-              const pts = hasPred && hasReal ? scoreMatch(+rh, +ra, +ph, +pa) : null;
+              const pts = hasPred && hasReal ? scoreMatch(+rh, +ra, +ph, +pa, scoringConfig?.match) : null;
               const pColor = PLAYER_COLORS[activePlayerIdx % 6];
               return (
                 <div onClick={e => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
@@ -115,7 +115,7 @@ export function MatchRow({ match, resultData, onResultChange, predictions, playe
           const pred = predictions[idx]?.[match.id];
           if (!pred || pred.h === "" || pred.h === undefined) return null;
           const color = PLAYER_COLORS[idx % 6];
-          const sc = hasResult ? scoreMatch(+rh, +ra, +pred.h, +pred.a) : null;
+          const sc = hasResult ? scoreMatch(+rh, +ra, +pred.h, +pred.a, scoringConfig?.match) : null;
           const isGroup = !!match.matchday;
           return (
             <div key={idx} style={{ display: "flex", alignItems: "center", gap: 4, background: color.light, border: `1px solid ${color.bg}`, borderRadius: 6, padding: "2px 7px", fontSize: 11 }}>

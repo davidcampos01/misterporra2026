@@ -89,5 +89,9 @@ export function useGameState(tournamentId) {
     write({ teamOverrides: { [placeholder]: team } });
   }, [write]);
 
-  return { gameState, fbError, setResult, setResults, setPred, addPlayer, removePlayer, renamePlayer, setTeamOverride };
+  const setScoringConfig = useCallback((config) => {
+    write({ scoringConfig: config });
+  }, [write]);
+
+  return { gameState, fbError, setResult, setResults, setPred, addPlayer, removePlayer, renamePlayer, setTeamOverride, setScoringConfig };
 }

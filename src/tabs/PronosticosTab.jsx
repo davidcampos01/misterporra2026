@@ -10,7 +10,7 @@ import { ScoreInput } from "../components/ScoreInput";
 const POS_COLORS = ["#06d6a0", "#4cc9f0", "#f5c842", "#ff6b6b"];
 
 function PredictedStandings({ activePlayerIdx, predictions, realStandings, qualifiedTeams }) {
-  const { fixtures, groups, tournament } = useTournament();
+  const { fixtures, groups, tournament, scoringConfig } = useTournament();
   const playerPreds = predictions[activePlayerIdx] ?? {};
   const color = PLAYER_COLORS[activePlayerIdx % 6];
 
@@ -51,7 +51,7 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
       if (!hasReal) return;
       const realOrder = realStandings[g].map(t => t.name);
       const predOrder = groupStandings[g].map(t => t.name);
-      out[g] = scoreStandings(realOrder, predOrder, qualifiedTeams ?? new Set(), predQualifiedSet);
+      out[g] = scoreStandings(realOrder, predOrder, qualifiedTeams ?? new Set(), predQualifiedSet, scoringConfig?.standings);
     });
     return out;
   }, [groupStandings, realStandings, qualifiedTeams, groups, predQualifiedSet]);
@@ -178,7 +178,7 @@ function PredictedStandings({ activePlayerIdx, predictions, realStandings, quali
 
 // ── Bracket de pronósticos para eliminatorias ───────────────────────────────
 function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap }) {
-  const { fixtures, groups, tournament } = useTournament();
+  const { fixtures, groups, tournament, scoringConfig } = useTournament();
   const playerPreds = predictions[activePlayerIdx] ?? {};
   const color = PLAYER_COLORS[activePlayerIdx % 6];
 
@@ -221,7 +221,7 @@ function PredKnockout({ activePlayerIdx, predictions, setPred, results, flagMap 
     const realM = realBr?.[roundKey];
     const realMatch = Array.isArray(realM) ? realM.find(r => r.id === m.id) : realM;
     const sameMatchup = realMatch?.result && realMatch.home === m.home && realMatch.away === m.away;
-    const matchScore = sameMatchup ? scoreKnockoutMatch(realMatch, pred) : null;
+    const matchScore = sameMatchup ? scoreKnockoutMatch(realMatch, pred, scoringConfig?.match) : null;
     const homeFlag = flagMap[m.home] ?? "❓";
     const awayFlag = flagMap[m.away] ?? "❓";
     const hasHome = m.home && m.home !== "?";
