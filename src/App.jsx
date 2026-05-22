@@ -141,9 +141,9 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
   const qualifiedTeams = useMemo(() => {
     const qualifiers = getQualifiers(results, fixtures, groups, tournament.numBest3rds);
     const set = new Set();
-    // Excluir slots "3X" (3ºs de grupo crudos) — los que clasifican ya están en T1..T4
+    // Excluir slots "T1"-"T8" (slots dinámicos que ya no se usan en R32_SLOTS)
     Object.entries(qualifiers).forEach(([key, t]) => {
-      if (/^3/.test(key)) return;
+      if (/^T[1-8]$/.test(key)) return;
       if (t?.name && !t.tbd) set.add(t.name);
     });
     return set;
