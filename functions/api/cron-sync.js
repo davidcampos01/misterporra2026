@@ -243,9 +243,21 @@ export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2,
     }
   }
 
+  // Para torneos dinámicos (mundial2026), config.fixtures es [].
+  // Usar los partidos recién obtenidos de FDO, o los guardados en Firestore como fallback.
+  const effectiveFixtures = config.fixtures.length > 0
+    ? config.fixtures
+    : (() => {
+        if (allFdoMatches) return allFdoMatches.map(fdoMatchToFixture);
+        const arr = Array.isArray(existingFixtures)
+          ? existingFixtures
+          : (existingFixtures ? Object.values(existingFixtures) : []);
+        return arr;
+      })();
+
   const results = {};
   let matched = 0;
-  for (const fix of config.fixtures) {
+  for (const fix of effectiveFixtures) {
     const homeReal = teamOverrides?.[fix.home]?.name ?? fix.home;
     const awayReal = teamOverrides?.[fix.away]?.name ?? fix.away;
     const score =
@@ -347,7 +359,13 @@ export async function runCronSync(tournamentId, apiFootballKey, apiFootballKey2,
     }
   }
 
-  await firestoreWrite(`game/${tournamentId}`, "results", results);
+  // Solo sobreescribir resultados si tenemos datos frescos de la API.
+  // Si la API no responde, no borrar los resultados que ya hay en Firestore.
+  if (Object.keys(scoreByTeams).length > 0 || config.fixtures.length > 0) {
+    await firestoreWrite(`game/${tournamentId}`, "results", results);
+  } else {
+    console.log(`[results] API no respondió y sin fixtures estáticos — no se sobreescriben resultados`);
+  }
   let overridesWritten = 0;
   if (Object.keys(newOverrides).length > 0) {
     const merged = { ...(teamOverrides ?? {}), ...newOverrides };

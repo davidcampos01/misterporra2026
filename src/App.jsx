@@ -301,7 +301,7 @@ function GameApp({ tournamentId, tournament, onChangeTournament }) {
         </nav>
 
         {tab === "setup" && (
-          <SetupTab players={players} scores={scores} standingsScores={standingsScores} koScores={koScores} renamePlayer={(idx, name) => renamePlayer(idx, name, players)} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players, predictions)} tournament={tournament} onSync={(newResults) => setResults({ ...results, ...newResults })} teamOverrides={teamOverrides} setTeamOverride={setTeamOverride} scoringConfig={scoringConfig} onScoringConfigChange={setScoringConfig} />
+          <SetupTab players={players} scores={scores} standingsScores={standingsScores} koScores={koScores} renamePlayer={(idx, name) => renamePlayer(idx, name, players)} removePlayer={handleRemovePlayer} addPlayer={() => addPlayer(players, predictions)} tournament={tournament} fixtures={fixtures} onSync={(newResults) => setResults({ ...results, ...newResults })} teamOverrides={teamOverrides} setTeamOverride={setTeamOverride} scoringConfig={scoringConfig} onScoringConfigChange={setScoringConfig} />
         )}
         {tab === "calendario" && (
           <CalendarioTab results={results} setResult={setResult} predictions={predictions} players={players} activePlayerIdx={activePlayerIdx} flagMap={flagMap} />

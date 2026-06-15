@@ -216,7 +216,7 @@ function ScoringConfigSection({ scoringConfig, tournamentId, editing, setEditing
   );
 }
 
-export function SetupTab({ players, scores, standingsScores, koScores, renamePlayer, removePlayer, addPlayer, tournament, onSync, teamOverrides = {}, setTeamOverride, scoringConfig, onScoringConfigChange }) {
+export function SetupTab({ players, scores, standingsScores, koScores, renamePlayer, removePlayer, addPlayer, tournament, fixtures: fixturesProp, onSync, teamOverrides = {}, setTeamOverride, scoringConfig, onScoringConfigChange }) {
   const [syncState, setSyncState] = useState(null); // null | "loading" | "ok" | "error"
   const [syncMsg, setSyncMsg] = useState("");
   const [editingScoring, setEditingScoring] = useState(false);
@@ -228,8 +228,8 @@ export function SetupTab({ players, scores, standingsScores, koScores, renamePla
       const res = await fetch(`/api/sync-results?tournament=${tournament.id}`);
       const data = await res.json();
       if (res.ok && data.ok) {
-        // Hacer el matching en el frontend usando los fixtures del torneo
-        const fixtures = tournament.fixtures;
+        // Usar fixtures dinámicos (Firestore) si existen; si no, los estáticos del torneo
+        const fixtures = fixturesProp?.length ? fixturesProp : tournament.fixtures;
         const scoreByTeams = {};
         for (const s of data.scores) {
           scoreByTeams[`${s.home}|${s.away}`] = s;
